@@ -4,6 +4,7 @@
  */
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const { initDb } = require('./models');
 
@@ -14,6 +15,8 @@ const feedRoutes = require('./routes/feed');
 const searchRoutes = require('./routes/search');
 const favoriteRoutes = require('./routes/favorites');
 const userRoutes = require('./routes/users');
+const commentRoutes = require('./routes/comments');
+const noteRoutes = require('./routes/notes');
 
 const app = express();
 const PORT = config.port;
@@ -22,6 +25,26 @@ const PORT = config.port;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// 全局API限流（每IP每15分钟最多300次请求）
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: '请求过于频繁，请稍后再试' }
+});
+
+// 写操作限流（每IP每15分钟最多60次）
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: '操作过于频繁，请稍后再试' }
+});
+
+app.use('/api/v1', apiLimiter);
 
 // 请求日志
 app.use((req, res, next) => {
@@ -46,6 +69,8 @@ app.use('/api/v1/feed', feedRoutes);
 app.use('/api/v1/search', searchRoutes);
 app.use('/api/v1/favorites', favoriteRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/comments', commentRoutes);
+app.use('/api/v1/notes', noteRoutes);
 
 // 404 处理
 app.use((req, res) => {

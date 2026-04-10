@@ -155,3 +155,48 @@ export const getKnowledgeCard = (videoId) =>
   api.get(`/ai/cards/${videoId}`);
 
 export default api;
+
+// ============================================
+// 评论相关 API
+// ============================================
+
+/** 获取视频评论 */
+export const getComments = (videoId, page = 1, limit = 20) =>
+  api.get(`/comments/${videoId}`, { params: { page, limit } });
+
+/** 发表评论 */
+export const postComment = (videoId, content) =>
+  api.post(`/comments/${videoId}`, { content });
+
+/** 删除评论 */
+export const deleteComment = (id) =>
+  api.delete(`/comments/${id}`);
+
+// ============================================
+// 学习笔记相关 API
+// ============================================
+
+/** 获取笔记列表 */
+export const getNotes = (videoId, page = 1, limit = 20) =>
+  api.get('/notes', { params: { video_id: videoId, page, limit } });
+
+/** 创建笔记 */
+export const createNote = (videoId, content, timestampSec = 0) =>
+  api.post('/notes', { video_id: videoId, content, timestamp_sec: timestampSec });
+
+/** 更新笔记 */
+export const updateNote = (id, content) =>
+  api.put(`/notes/${id}`, { content });
+
+/** 删除笔记 */
+export const deleteNote = (id) =>
+  api.delete(`/notes/${id}`);
+
+// ============================================
+// 学习历史 API
+// ============================================
+
+/** 获取学习历史 */
+export const getLearningHistory = (page = 1, limit = 20) =>
+  api.get('/users/history', { params: { page, limit } });
+

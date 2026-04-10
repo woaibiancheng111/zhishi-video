@@ -13,6 +13,9 @@
 - **全文搜索** - 支持视频标题、描述、标签的全文搜索
 - **知识卡片** - AI自动生成视频知识要点，辅助学习
 - **收藏管理** - 支持创建收藏夹，分类管理学习内容
+- **评论互动** - 在视频下方发表评论，与其他学习者互动交流
+- **学习笔记** - 观看视频时记录学习笔记，支持时间戳标注，随时回顾
+- **学习历史** - 追踪学习行为，展示观看历史及完成进度
 - **学习统计** - 追踪学习行为，展示学习数据
 
 ## 技术栈
@@ -50,7 +53,22 @@ zhishi-video/
 ├── frontend/                   # 前端应用
 │   └── src/
 │       ├── pages/              # 页面组件
+│       │   ├── Home.jsx        # 首页推荐Feed
+│       │   ├── Category.jsx    # 分类浏览
+│       │   ├── Search.jsx      # 搜索
+│       │   ├── Player.jsx      # 视频播放（含评论、笔记）
+│       │   ├── Favorites.jsx   # 我的收藏
+│       │   ├── Notes.jsx       # 学习笔记
+│       │   ├── History.jsx     # 学习历史
+│       │   ├── Profile.jsx     # 个人中心
+│       │   └── Login.jsx       # 登录
 │       ├── components/         # 通用组件
+│       │   ├── NavBar.jsx      # 底部导航栏
+│       │   ├── VideoCard.jsx   # 视频卡片
+│       │   ├── SearchBar.jsx   # 搜索框
+│       │   ├── KnowledgeCard.jsx # 知识卡片弹窗
+│       │   ├── Comments.jsx    # 评论区组件
+│       │   └── NotesModal.jsx  # 学习笔记弹窗
 │       ├── services/           # API调用
 │       └── hooks/              # 自定义Hooks
 └── nginx/                      # Nginx配置
@@ -166,6 +184,7 @@ npm start
 |------|------|------|
 | GET | /api/v1/users/me | 当前用户信息 |
 | PUT | /api/v1/users/me | 更新用户信息 |
+| GET | /api/v1/users/history | 学习历史（需登录） |
 
 ### AI服务接口
 
@@ -173,6 +192,23 @@ npm start
 |------|------|------|
 | POST | /api/v1/ai/recommend | AI推荐 |
 | GET | /api/v1/ai/cards/:video_id | 知识卡片 |
+
+### 评论接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/v1/comments/:videoId | 获取视频评论列表 |
+| POST | /api/v1/comments/:videoId | 发表评论（需登录） |
+| DELETE | /api/v1/comments/:id | 删除评论（仅本人） |
+
+### 学习笔记接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/v1/notes | 获取笔记列表（需登录） |
+| POST | /api/v1/notes | 创建笔记（需登录） |
+| PUT | /api/v1/notes/:id | 更新笔记（需登录） |
+| DELETE | /api/v1/notes/:id | 删除笔记（需登录） |
 
 ## 截图
 
