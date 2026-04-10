@@ -90,6 +90,9 @@ services:
     container_name: zhishi-frontend
     ports:
       - "3001:3001"
+    environment:
+      PORT: 3001
+      HOST: 0.0.0.0
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public

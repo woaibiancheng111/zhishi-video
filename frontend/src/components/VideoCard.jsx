@@ -23,57 +23,27 @@ function VideoCard({ video }) {
 
   return (
     <div className="card video-card" onClick={handleClick}>
-      <div className="video-card-cover" style={{ position: 'relative' }}>
+      <div className="video-card-cover">
         <img
+          className="video-card-image"
           src={video.cover_url || `https://via.placeholder.com/400x225/00B4D8/FFFFFF?text=${encodeURIComponent(video.title?.slice(0, 6) || '视频')}`}
           alt={video.title}
-          style={{
-            width: '100%',
-            height: 100,
-            objectFit: 'cover',
-            display: 'block'
-          }}
           loading="lazy"
         />
         {video.duration > 0 && (
-          <span style={{
-            position: 'absolute',
-            bottom: 6,
-            right: 6,
-            background: 'rgba(0,0,0,0.7)',
-            color: '#fff',
-            fontSize: 11,
-            padding: '1px 6px',
-            borderRadius: 3
-          }}>
+          <span className="video-card-duration">
             {Math.floor(video.duration / 60)}:{String(video.duration % 60).padStart(2, '0')}
           </span>
         )}
       </div>
-      <div style={{ padding: '8px 10px 10px' }}>
-        <h3 style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color: '#1B2838',
-          lineHeight: 1.4,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-          marginBottom: 6
-        }}>
+      <div className="video-card-body">
+        <h3 className="video-card-title">
           {video.title}
         </h3>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: 11,
-          color: '#94A3B8'
-        }}>
-          <span>{video.category_name || '未分类'}</span>
-          <span>
-            <span style={{ marginRight: 8 }}>{formatCount(video.play_count)}播放</span>
+        <div className="video-card-meta">
+          <span className="video-card-category">{video.category_name || '未分类'}</span>
+          <span className="video-card-stats">
+            <span>{formatCount(video.play_count)}播放</span>
             <span>{formatCount(video.like_count)}赞</span>
           </span>
         </div>

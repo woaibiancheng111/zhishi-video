@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -12,10 +12,13 @@ import { useAuth } from './hooks/useAuth';
 
 function App() {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/login';
 
   return (
-    <div className="app">
-      <div className="app-content">
+    <div className={`app ${isLoginPage ? 'app-auth' : ''}`}>
+      {!isLoginPage && <NavBar />}
+      <div className={`app-content ${isLoginPage ? 'app-content-auth' : ''}`}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Home />} />
@@ -27,7 +30,6 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
-      <NavBar />
     </div>
   );
 }
