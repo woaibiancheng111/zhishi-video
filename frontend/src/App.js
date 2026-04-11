@@ -8,6 +8,8 @@ import Search from './pages/Search';
 import Player from './pages/Player';
 import Favorites from './pages/Favorites';
 import Profile from './pages/Profile';
+import Notes from './pages/Notes';
+import History from './pages/History';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
@@ -27,6 +29,8 @@ function App() {
           <Route path="/video/:id" element={<Player />} />
           <Route path="/favorites" element={isAuthenticated ? <Favorites /> : <Navigate to="/login" />} />
           <Route path="/profile" element={isAuthenticated ? <Profile /> : <Navigate to="/login" />} />
+          <Route path="/notes" element={isAuthenticated ? <Notes /> : <Navigate to="/login" />} />
+          <Route path="/history" element={isAuthenticated ? <History /> : <Navigate to="/login" />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

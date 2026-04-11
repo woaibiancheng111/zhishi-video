@@ -63,6 +63,60 @@ router.get('/me', async (req, res) => {
 });
 
 /**
+ * GET /api/v1/users/history
+ * 获取用户学习历史（最近观看的视频）
+ */
+router.get('/history', async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+    const db = getDb();
+
+    const countResult = await db.one(
+      `SELECT COUNT(DISTINCT video_id) as total FROM user_behaviors
+       WHERE user_id = $1 AND behavior_type = 'play'`,
+      [userId]
+    );
+
+    const history = await db.any(
+      `SELECT DISTINCT ON (ub.video_id)
+              ub.video_id, ub.duration as watched_duration, ub.progress,
+              ub.created_at as watched_at,
+              v.title, v.cover_url, v.duration as total_duration, v.category_id,
+              c.name as category_name
+       FROM user_behaviors ub
+       JOIN videos v ON ub.video_id = v.id
+       LEFT JOIN categories c ON v.category_id = c.id
+       WHERE ub.user_id = $1 AND ub.behavior_type = 'play'
+       ORDER BY ub.video_id, ub.created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [userId, parseInt(limit), parseInt(offset)]
+    );
+
+    // Sort by watched_at descending after dedup
+    history.sort((a, b) => new Date(b.watched_at) - new Date(a.watched_at));
+
+    res.json({
+      success: true,
+      data: {
+        list: history,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: parseInt(countResult.total),
+          total_pages: Math.ceil(countResult.total / limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('[获取学习历史错误]', error);
+    res.status(500).json({ success: false, message: '获取学习历史失败' });
+  }
+});
+
+
+/**
  * PUT /api/v1/users/me
  * 更新用户信息
  * 请求体: { nickname?, avatar_url?, bio?, career_direction?, skill_tags? }

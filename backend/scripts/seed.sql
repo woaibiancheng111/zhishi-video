@@ -3,6 +3,8 @@
 -- ============================================
 
 -- 清理已有表
+DROP TABLE IF EXISTS notes CASCADE;
+DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS knowledge_cards CASCADE;
 DROP TABLE IF EXISTS user_behaviors CASCADE;
 DROP TABLE IF EXISTS favorites CASCADE;
@@ -107,6 +109,32 @@ CREATE TABLE knowledge_cards (
 );
 
 -- ============================================
+-- 评论表
+-- ============================================
+CREATE TABLE comments (
+    id SERIAL PRIMARY KEY,
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    like_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================
+-- 学习笔记表
+-- ============================================
+CREATE TABLE notes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    timestamp_sec INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================
 -- 创建索引
 -- ============================================
 CREATE INDEX idx_videos_category ON videos(category_id);
@@ -116,6 +144,10 @@ CREATE INDEX idx_user_behaviors_user ON user_behaviors(user_id);
 CREATE INDEX idx_user_behaviors_video ON user_behaviors(video_id);
 CREATE INDEX idx_favorites_user ON favorites(user_id);
 CREATE INDEX idx_user_behaviors_type ON user_behaviors(user_id, behavior_type);
+CREATE INDEX idx_comments_video ON comments(video_id);
+CREATE INDEX idx_comments_user ON comments(user_id);
+CREATE INDEX idx_notes_user ON notes(user_id);
+CREATE INDEX idx_notes_video ON notes(user_id, video_id);
 
 -- ============================================
 -- 插入分类数据

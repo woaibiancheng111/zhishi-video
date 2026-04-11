@@ -8,6 +8,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getVideoDetail, toggleLike, reportPlay, addFavorite, getFeed } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import KnowledgeCard from '../components/KnowledgeCard';
+import Comments from '../components/Comments';
+import NotesModal from '../components/NotesModal';
 
 function formatCount(count) {
   if (!count) return '0';
@@ -36,6 +38,8 @@ function Player() {
   const [favorited, setFavorited] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [showCard, setShowCard] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [currentTimestamp, setCurrentTimestamp] = useState(0);
   const [playReported, setPlayReported] = useState(false);
   const [relatedVideos, setRelatedVideos] = useState([]);
   const [relatedLoading, setRelatedLoading] = useState(true);
@@ -118,9 +122,11 @@ function Player() {
   };
 
   const handleTimeUpdate = () => {
-    if (!videoRef.current || !isAuthenticated || playReported) return;
-
+    if (!videoRef.current) return;
     const { currentTime, duration } = videoRef.current;
+    setCurrentTimestamp(Math.floor(currentTime));
+
+    if (!isAuthenticated || playReported) return;
     const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
     if (currentTime > 10 || progress > 50) {
@@ -220,6 +226,20 @@ function Player() {
                       知识卡片
                     </button>
 
+                    <button
+                      className="video-action-btn"
+                      onClick={() => {
+                        if (!isAuthenticated) { navigate('/login'); return; }
+                        setShowNotes(true);
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                      </svg>
+                      笔记
+                    </button>
+
                     <button className="video-action-btn" onClick={handleShare}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="18" cy="5" r="3"></circle>
@@ -253,6 +273,9 @@ function Player() {
                     ))}
                   </div>
                 )}
+
+                {/* 评论区 */}
+                <Comments videoId={parseInt(id, 10)} />
                 </div>
               </div>
           </section>
@@ -301,6 +324,13 @@ function Player() {
         videoId={parseInt(id, 10)}
         visible={showCard}
         onClose={() => setShowCard(false)}
+      />
+
+      <NotesModal
+        videoId={parseInt(id, 10)}
+        visible={showNotes}
+        onClose={() => setShowNotes(false)}
+        currentTimestamp={currentTimestamp}
       />
     </div>
   );
