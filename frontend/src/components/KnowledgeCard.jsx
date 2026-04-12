@@ -3,11 +3,23 @@
  * 显示摘要、关键要点列表、思维导图
  */
 import React, { useState, useEffect } from 'react';
-import { getKnowledgeCard } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { getKnowledgeCard, addFavorite } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
-function KnowledgeCard({ videoId, visible, onClose }) {
+function KnowledgeCard({ videoId, visible, onClose, onOpenNotes }) {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setCopied(false);
+    }
+  }, [visible]);
 
   useEffect(() => {
     if (visible && videoId) {
@@ -29,6 +41,51 @@ function KnowledgeCard({ videoId, visible, onClose }) {
     }
   };
 
+  const handleCopy = async () => {
+    if (!card) return;
+
+    const text = [
+      card.summary,
+      ...(card.key_points || []).map((point, index) => `${index + 1}. ${point}`)
+    ].filter(Boolean).join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch (err) {
+      alert('复制失败，请稍后重试');
+    }
+  };
+
+  const handleFavorite = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await addFavorite(videoId);
+      if (res.success) {
+        alert('已加入收藏，稍后可以去收藏夹复习');
+      }
+    } catch (err) {
+      alert(err?.message || '加入收藏失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleOpenNotes = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    onClose();
+    onOpenNotes?.();
+  };
+
   if (!visible) return null;
 
   return (
@@ -44,6 +101,24 @@ function KnowledgeCard({ videoId, visible, onClose }) {
         ) : card ? (
           <>
             <h2>知识卡片</h2>
+            <div style={{ fontSize: 13, color: '#64748B', marginBottom: 12 }}>
+              把这条视频的重点快速提炼出来，方便收藏、复习和继续记笔记。
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <button className="btn btn-outline btn-sm" onClick={handleCopy}>
+                {copied ? '已复制要点' : '复制要点'}
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={handleFavorite} disabled={saving}>
+                {saving ? '保存中...' : '加入收藏'}
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={handleOpenNotes}>
+                去记笔记
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={() => navigate('/notes')}>
+                我的笔记
+              </button>
+            </div>
 
             {/* 摘要 */}
             <div className="knowledge-card-summary">

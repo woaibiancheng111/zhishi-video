@@ -157,15 +157,26 @@ function Favorites() {
                   <span className="favorite-item-meta">
                     {item.category_name || '未分类'}
                   </span>
-                  <button
-                    className="btn btn-sm btn-danger-soft"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveFavorite(item.favorite_id);
-                    }}
-                  >
-                    取消收藏
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button
+                      className="btn btn-sm btn-outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/video/${item.video_id}`);
+                      }}
+                    >
+                      去复习
+                    </button>
+                    <button
+                      className="btn btn-sm btn-danger-soft"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFavorite(item.favorite_id);
+                      }}
+                    >
+                      取消收藏
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
