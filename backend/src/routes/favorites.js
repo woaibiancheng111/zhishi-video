@@ -8,6 +8,18 @@ const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
+async function ensureUserExists(db, userId, res) {
+  const user = await db.oneOrNone('SELECT id FROM users WHERE id = $1', [userId]);
+  if (!user) {
+    res.status(401).json({
+      success: false,
+      message: '登录状态已失效，请重新登录'
+    });
+    return false;
+  }
+  return true;
+}
+
 // 所有收藏接口都需要登录
 router.use(authMiddleware);
 
@@ -21,6 +33,10 @@ router.get('/', async (req, res) => {
     const { folder_id } = req.query;
     const userId = req.user.user_id;
     const db = getDb();
+
+    if (!(await ensureUserExists(db, userId, res))) {
+      return;
+    }
 
     // 获取收藏夹列表
     const folders = await db.any(
@@ -74,6 +90,10 @@ router.post('/', async (req, res) => {
     const { video_id, folder_id } = req.body;
     const userId = req.user.user_id;
     const db = getDb();
+
+    if (!(await ensureUserExists(db, userId, res))) {
+      return;
+    }
 
     if (!video_id) {
       return res.status(400).json({
@@ -152,6 +172,10 @@ router.delete('/:id', async (req, res) => {
     const userId = req.user.user_id;
     const db = getDb();
 
+    if (!(await ensureUserExists(db, userId, res))) {
+      return;
+    }
+
     // 检查收藏是否存在
     const favorite = await db.oneOrNone(
       'SELECT id FROM favorites WHERE id = $1 AND user_id = $2',
@@ -190,6 +214,10 @@ router.post('/folders', async (req, res) => {
     const { name, description } = req.body;
     const userId = req.user.user_id;
     const db = getDb();
+
+    if (!(await ensureUserExists(db, userId, res))) {
+      return;
+    }
 
     if (!name) {
       return res.status(400).json({

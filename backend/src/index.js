@@ -65,6 +65,8 @@ app.get('/health', (req, res) => {
 // 注册路由
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/videos', videoRoutes);
+app.use('/api/v1/roadmaps', require('./routes/roadmaps'));
+app.use('/api/v1/creator', require('./routes/creator'));
 app.use('/api/v1/feed', feedRoutes);
 app.use('/api/v1/search', searchRoutes);
 app.use('/api/v1/favorites', favoriteRoutes);

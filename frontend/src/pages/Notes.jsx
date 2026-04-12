@@ -137,9 +137,9 @@ function Notes() {
                   <div className="note-actions">
                     <button
                       className="note-action-btn"
-                      onClick={() => navigate(`/video/${note.video_id}`)}
+                      onClick={() => navigate(`/video/${note.video_id}${note.timestamp_sec > 0 ? `?t=${note.timestamp_sec}` : ''}`)}
                     >
-                      回看视频
+                      {note.timestamp_sec > 0 ? '回看该片段' : '回看视频'}
                     </button>
                     <button
                       className="note-action-btn note-action-delete"

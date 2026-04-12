@@ -3,6 +3,7 @@
  * 支持查看、新建、编辑、删除笔记
  */
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getNotes, createNote, updateNote, deleteNote } from '../services/api';
 
 function formatTimestamp(sec) {
@@ -23,6 +24,7 @@ function formatDate(dateStr) {
 }
 
 function NotesModal({ videoId, visible, onClose, currentTimestamp = 0 }) {
+  const navigate = useNavigate();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -149,7 +151,14 @@ function NotesModal({ videoId, visible, onClose, currentTimestamp = 0 }) {
               <div key={note.id} className="note-item">
                 <div className="note-item-meta">
                   {note.timestamp_sec > 0 && (
-                    <span className="note-timestamp">⏱ {formatTimestamp(note.timestamp_sec)}</span>
+                    <button
+                      type="button"
+                      className="note-timestamp"
+                      style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}
+                      onClick={() => navigate(`/video/${videoId}?t=${note.timestamp_sec}`)}
+                    >
+                      ⏱ {formatTimestamp(note.timestamp_sec)} · 回看片段
+                    </button>
                   )}
                   <span className="note-date">{formatDate(note.updated_at)}</span>
                 </div>

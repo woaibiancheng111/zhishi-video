@@ -32,6 +32,8 @@ function Favorites() {
       }
     } catch (err) {
       console.error('获取收藏列表失败:', err);
+      setFolders([]);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -50,6 +52,7 @@ function Favorites() {
       }
     } catch (err) {
       console.error('创建收藏夹失败:', err);
+      alert(err?.message || '创建收藏夹失败，请稍后重试');
     }
   };
 
@@ -60,38 +63,33 @@ function Favorites() {
       fetchFavorites();
     } catch (err) {
       console.error('取消收藏失败:', err);
+      alert(err?.message || '取消收藏失败，请稍后重试');
     }
   };
 
   return (
     <div className="page">
-      <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1>我的收藏</h1>
-        <button
-          className="btn btn-sm btn-outline"
-          onClick={() => setShowCreateFolder(!showCreateFolder)}
-        >
-          {showCreateFolder ? '取消' : '+ 新建收藏夹'}
-        </button>
+      <div className="page-header">
+        <div className="page-header-row">
+          <h1>我的收藏</h1>
+          <button
+            className="btn btn-sm btn-outline"
+            onClick={() => setShowCreateFolder(!showCreateFolder)}
+          >
+            {showCreateFolder ? '取消' : '+ 新建收藏夹'}
+          </button>
+        </div>
       </div>
 
       {/* 创建收藏夹 */}
       {showCreateFolder && (
-        <div style={{
-          display: 'flex',
-          gap: 8,
-          padding: '12px 0',
-          background: '#F8FAFC',
-          borderRadius: 8,
-          marginBottom: 12
-        }}>
+        <div className="folder-create-bar">
           <input
             type="text"
-            className="input"
+            className="input folder-create-input"
             placeholder="收藏夹名称"
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
-            style={{ flex: 1, padding: '8px 12px' }}
           />
           <button className="btn btn-primary btn-sm" onClick={handleCreateFolder}>
             创建
@@ -131,82 +129,54 @@ function Favorites() {
           <div className="empty-state-icon">📑</div>
           <div className="empty-state-text">暂无收藏内容</div>
           <button
-            className="btn btn-primary btn-sm"
-            style={{ marginTop: 16 }}
+            className="btn btn-primary btn-sm section-action"
             onClick={() => navigate('/')}
           >
             去发现好内容
           </button>
         </div>
       ) : (
-        <div style={{ paddingTop: 12 }}>
+        <div className="folder-content">
           {items.map((item) => (
             <div
               key={item.favorite_id}
-              style={{
-                display: 'flex',
-                gap: 12,
-                padding: 12,
-                background: '#fff',
-                borderRadius: 12,
-                marginBottom: 8,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                cursor: 'pointer'
-              }}
+              className="favorite-item"
               onClick={() => navigate(`/video/${item.video_id}`)}
             >
               <img
                 src={item.cover_url || `https://via.placeholder.com/160x90/00B4D8/FFFFFF?text=视频`}
                 alt={item.title}
-                style={{
-                  width: 140,
-                  height: 80,
-                  objectFit: 'cover',
-                  borderRadius: 8,
-                  flexShrink: 0
-                }}
+                className="favorite-item-cover"
                 loading="lazy"
               />
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div className="favorite-item-body">
                 <div>
-                  <h3 style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: '#1B2838',
-                    lineHeight: 1.4,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden'
-                  }}>
-                    {item.title}
-                  </h3>
+                  <h3 className="favorite-item-title">{item.title}</h3>
                 </div>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <span style={{ fontSize: 11, color: '#94A3B8' }}>
+                <div className="favorite-item-footer">
+                  <span className="favorite-item-meta">
                     {item.category_name || '未分类'}
                   </span>
-                  <button
-                    className="btn btn-sm"
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: 11,
-                      color: '#EF4444',
-                      border: '1px solid #FCA5A5',
-                      background: '#FEF2F2',
-                      borderRadius: 12
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveFavorite(item.favorite_id);
-                    }}
-                  >
-                    取消收藏
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button
+                      className="btn btn-sm btn-outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/video/${item.video_id}`);
+                      }}
+                    >
+                      去复习
+                    </button>
+                    <button
+                      className="btn btn-sm btn-danger-soft"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFavorite(item.favorite_id);
+                      }}
+                    >
+                      取消收藏
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

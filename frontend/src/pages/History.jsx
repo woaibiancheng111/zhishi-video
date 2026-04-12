@@ -92,7 +92,19 @@ function History() {
           </div>
 
           <div className="history-list">
-            {history.map((item) => {
+            {[...history].sort((a, b) => {
+              const progressA = a.total_duration > 0
+                ? Math.min(Math.round((a.watched_duration / a.total_duration) * 100), 100)
+                : Math.min(Math.round(a.progress || 0), 100);
+              const progressB = b.total_duration > 0
+                ? Math.min(Math.round((b.watched_duration / b.total_duration) * 100), 100)
+                : Math.min(Math.round(b.progress || 0), 100);
+
+              const unfinishedA = progressA > 0 && progressA < 100 ? 1 : 0;
+              const unfinishedB = progressB > 0 && progressB < 100 ? 1 : 0;
+              if (unfinishedA !== unfinishedB) return unfinishedB - unfinishedA;
+              return new Date(b.watched_at) - new Date(a.watched_at);
+            }).map((item) => {
               const progressPct = item.total_duration > 0
                 ? Math.min(Math.round((item.watched_duration / item.total_duration) * 100), 100)
                 : Math.min(Math.round(item.progress || 0), 100);
@@ -141,6 +153,9 @@ function History() {
                         {progressPct > 0 ? `已看 ${progressPct}%` : '未开始'}
                       </span>
                       <span className="note-date">{formatDate(item.watched_at)}</span>
+                    </div>
+                    <div style={{ marginTop: 10, color: 'var(--primary)', fontSize: 13, fontWeight: 600 }}>
+                      {progressPct > 0 && progressPct < 100 ? '继续观看 →' : '重新学习 →'}
                     </div>
                   </div>
                 </div>

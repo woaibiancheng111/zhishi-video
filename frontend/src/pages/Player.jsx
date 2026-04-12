@@ -4,7 +4,7 @@
  * 视频信息、操作按钮、知识卡片弹窗
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getVideoDetail, toggleLike, reportPlay, addFavorite, getFeed } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import KnowledgeCard from '../components/KnowledgeCard';
@@ -29,8 +29,10 @@ function formatDuration(seconds) {
 function Player() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated } = useAuth();
   const videoRef = useRef(null);
+  const [resumeApplied, setResumeApplied] = useState(false);
 
   const [video, setVideo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,9 +47,39 @@ function Player() {
   const [relatedLoading, setRelatedLoading] = useState(true);
 
   useEffect(() => {
+    setResumeApplied(false);
     fetchVideoDetail();
     fetchRelatedVideos();
   }, [id]);
+
+  useEffect(() => {
+    if (!videoRef.current || resumeApplied) return;
+
+    const params = new URLSearchParams(location.search);
+    const resumeAt = Number(params.get('t'));
+
+    if (!Number.isFinite(resumeAt) || resumeAt <= 0) {
+      setResumeApplied(true);
+      return;
+    }
+
+    const applyResume = () => {
+      if (!videoRef.current) return;
+      const duration = Number(videoRef.current.duration);
+      const targetTime = duration > 0 ? Math.min(resumeAt, Math.max(duration - 1, 0)) : resumeAt;
+      videoRef.current.currentTime = Math.max(targetTime, 0);
+      setCurrentTimestamp(Math.floor(Math.max(targetTime, 0)));
+      setResumeApplied(true);
+    };
+
+    if (videoRef.current.readyState >= 1) {
+      applyResume();
+      return;
+    }
+
+    videoRef.current.addEventListener('loadedmetadata', applyResume, { once: true });
+    return () => videoRef.current?.removeEventListener('loadedmetadata', applyResume);
+  }, [location.search, resumeApplied, id]);
 
   const fetchVideoDetail = async () => {
     setLoading(true);
@@ -98,6 +130,7 @@ function Player() {
       }
     } catch (err) {
       console.error('点赞失败:', err);
+      alert(err?.message || '点赞失败，请重新登录后重试');
     }
   };
 
@@ -118,6 +151,7 @@ function Player() {
       }
     } catch (err) {
       console.error('收藏操作失败:', err);
+      alert(err?.message || '收藏失败，请重新登录后重试');
     }
   };
 
@@ -149,6 +183,47 @@ function Player() {
     navigator.clipboard?.writeText(window.location.href);
     alert('链接已复制');
   };
+
+  const relatedByCategory = relatedVideos.filter((item) => item.category_name === video.category_name);
+  const recommendedNext = relatedByCategory.length > 0 ? relatedByCategory[0] : relatedVideos[0];
+  const continueActions = [
+    recommendedNext
+      ? {
+          key: 'next-video',
+          title: '继续看下一条',
+          description: recommendedNext.title,
+          action: () => navigate(`/video/${recommendedNext.id}`),
+          cta: '继续学习'
+        }
+      : null,
+    {
+      key: 'card',
+      title: '提炼重点',
+      description: '打开知识卡片，快速复习本视频要点',
+      action: () => setShowCard(true),
+      cta: '查看卡片'
+    },
+    {
+      key: 'note',
+      title: '记录灵感',
+      description: currentTimestamp > 0 ? `在 ${formatDuration(currentTimestamp)} 处补充你的学习笔记` : '记录这条视频给你的关键收获',
+      action: () => {
+        if (!isAuthenticated) {
+          navigate('/login');
+          return;
+        }
+        setShowNotes(true);
+      },
+      cta: '去记笔记'
+    },
+    {
+      key: 'review',
+      title: '稍后复习',
+      description: '去历史或笔记页继续消化已经学过的内容',
+      action: () => navigate(isAuthenticated ? '/history' : '/login'),
+      cta: '查看历史'
+    }
+  ].filter(Boolean);
 
   if (loading) {
     return (
@@ -261,7 +336,12 @@ function Player() {
                     <div className="video-creator-name">{video.creator?.nickname || '匿名创作者'}</div>
                     <div className="player-channel-sub">知识领域创作者</div>
                   </div>
-                  <button className="player-channel-btn">关注</button>
+                  <button
+                    className="player-channel-btn"
+                    onClick={() => alert('关注功能开发中，敬请期待')}
+                  >
+                    关注
+                  </button>
                 </div>
 
                 <div className="video-description player-desc-box">{video.description}</div>
@@ -273,6 +353,29 @@ function Player() {
                     ))}
                   </div>
                 )}
+
+                <div className="player-side-card" style={{ marginTop: 24 }}>
+                  <h3 className="player-side-title">学完下一步</h3>
+                  <div className="related-list">
+                    {continueActions.map((item) => (
+                      <button
+                        key={item.key}
+                        className="related-item"
+                        onClick={item.action}
+                      >
+                        <div className="related-content" style={{ width: '100%' }}>
+                          <div className="related-title">{item.title}</div>
+                          <div className="related-meta" style={{ marginBottom: 10 }}>
+                            <span>{item.description}</span>
+                          </div>
+                          <div style={{ color: 'var(--primary)', fontSize: 13, fontWeight: 600 }}>
+                            {item.cta} →
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 {/* 评论区 */}
                 <Comments videoId={parseInt(id, 10)} />
@@ -324,6 +427,7 @@ function Player() {
         videoId={parseInt(id, 10)}
         visible={showCard}
         onClose={() => setShowCard(false)}
+        onOpenNotes={() => setShowNotes(true)}
       />
 
       <NotesModal

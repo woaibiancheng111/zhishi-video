@@ -36,9 +36,9 @@ api.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response;
       if (status === 401) {
-        // token 过期，清除登录状态
         localStorage.removeItem('zhishi_token');
         localStorage.removeItem('zhishi_user');
+        sessionStorage.setItem('auth_expired_message', data?.message || '登录状态已失效，请重新登录');
         window.location.href = '/login';
       }
       return Promise.reject(data || error);
@@ -200,3 +200,15 @@ export const deleteNote = (id) =>
 export const getLearningHistory = (page = 1, limit = 20) =>
   api.get('/users/history', { params: { page, limit } });
 
+
+// ============================================
+// 成就与打卡 API
+// ============================================
+
+/** 每日打卡 */
+export const checkIn = () =>
+  api.post('/users/check-in');
+
+/** 获取用户成就与统计 */
+export const getAchievements = () =>
+  api.get('/users/achievements');
