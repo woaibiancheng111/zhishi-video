@@ -1,6 +1,5 @@
 /**
  * NavBar - 底部TabBar导航
- * 5个Tab: 首页、分类、搜索、收藏、我的
  */
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -17,14 +16,11 @@ const tabs = [
     )
   },
   {
-    path: '/category',
-    label: '分类',
+    path: '/roadmaps',
+    label: '路线',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7"></rect>
-        <rect x="14" y="3" width="7" height="7"></rect>
-        <rect x="14" y="14" width="7" height="7"></rect>
-        <rect x="3" y="14" width="7" height="7"></rect>
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path>
       </svg>
     )
   },
@@ -65,7 +61,6 @@ function NavBar() {
 
   const currentPath = location.pathname;
 
-  // 判断当前激活的Tab
   const isActive = (tabPath) => {
     if (tabPath === '/') return currentPath === '/';
     return currentPath.startsWith(tabPath);

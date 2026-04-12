@@ -8,6 +8,18 @@ const { authMiddleware, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+async function ensureUserExists(db, userId, res) {
+  const user = await db.oneOrNone('SELECT id FROM users WHERE id = $1', [userId]);
+  if (!user) {
+    res.status(401).json({
+      success: false,
+      message: '登录状态已失效，请重新登录'
+    });
+    return false;
+  }
+  return true;
+}
+
 /**
  * GET /api/v1/videos
  * 获取视频列表（支持分页、分类筛选）
@@ -164,6 +176,10 @@ router.post('/:id/like', authMiddleware, async (req, res) => {
     const userId = req.user.user_id;
     const db = getDb();
 
+    if (!(await ensureUserExists(db, userId, res))) {
+      return;
+    }
+
     // 检查视频是否存在
     const video = await db.oneOrNone('SELECT id FROM videos WHERE id = $1', [id]);
     if (!video) {
@@ -220,6 +236,10 @@ router.post('/:id/play', authMiddleware, async (req, res) => {
     const { duration = 0, progress = 0 } = req.body;
     const userId = req.user.user_id;
     const db = getDb();
+
+    if (!(await ensureUserExists(db, userId, res))) {
+      return;
+    }
 
     // 检查视频是否存在
     const video = await db.oneOrNone('SELECT id FROM videos WHERE id = $1', [id]);

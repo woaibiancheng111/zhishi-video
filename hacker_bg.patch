@@ -1,0 +1,42 @@
+--- frontend/src/App.css
++++ frontend/src/App.css
+@@ -35,10 +35,16 @@
+ .app {
+   min-height: 100vh;
+   display: flex;
+   flex-direction: column;
+   background:
+-    radial-gradient(circle at 12% -18%, rgba(17, 183, 216, 0.18), transparent 34%),
+-    radial-gradient(circle at 88% -16%, rgba(15, 128, 187, 0.15), transparent 38%),
+-    var(--bg-primary);
++    linear-gradient(rgba(3, 8, 18, 0.95), rgba(3, 8, 18, 0.95)),
++    repeating-linear-gradient(rgba(0, 210, 255, 0.04) 0px, rgba(0, 210, 255, 0.04) 1px, transparent 1px, transparent 40px),
++    repeating-linear-gradient(90deg, rgba(0, 210, 255, 0.04) 0px, rgba(0, 210, 255, 0.04) 1px, transparent 1px, transparent 40px),
++    var(--bg-primary);
++  position: relative;
++  overflow: hidden;
+ }
+ 
++.app::before {
++  content: "";
++  position: fixed;
++  top: 0; left: 0; right: 0; bottom: 0;
++  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1) 1px, transparent 1px, transparent 2px);
++  pointer-events: none;
++  z-index: 9999;
++}
++
++@keyframes scanline {
++  0% { transform: translateY(-100%); }
++  100% { transform: translateY(100vh); }
++}
++
++.app::after {
++  content: "";
++  position: fixed;
++  top: 0; left: 0; right: 0; height: 10vh;
++  background: linear-gradient(to bottom, transparent, rgba(0, 210, 255, 0.05), transparent);
++  pointer-events: none;
++  z-index: 9998;
++  animation: scanline 8s linear infinite;
++}

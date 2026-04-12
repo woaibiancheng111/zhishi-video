@@ -2,16 +2,16 @@
  * useAuth - 认证状态管理 Hook
  * 管理登录状态，localStorage 存储 token
  */
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as api from '../services/api';
 
-export function useAuth() {
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 初始化：从 localStorage 恢复登录状态
   useEffect(() => {
     const savedToken = localStorage.getItem('zhishi_token');
     const savedUser = localStorage.getItem('zhishi_user');
@@ -24,10 +24,10 @@ export function useAuth() {
         localStorage.removeItem('zhishi_user');
       }
     }
+
     setLoading(false);
   }, []);
 
-  /** 登录 */
   const login = useCallback(async (phone, code) => {
     const res = await api.login(phone, code);
     if (res.success) {
@@ -41,7 +41,6 @@ export function useAuth() {
     throw new Error(res.message || '登录失败');
   }, []);
 
-  /** 登出 */
   const logout = useCallback(() => {
     localStorage.removeItem('zhishi_token');
     localStorage.removeItem('zhishi_user');
@@ -49,28 +48,33 @@ export function useAuth() {
     setUser(null);
   }, []);
 
-  /** 更新用户信息 */
   const updateUser = useCallback((userData) => {
     localStorage.setItem('zhishi_user', JSON.stringify(userData));
     setUser(userData);
   }, []);
 
-  /** 是否已认证 */
-  const isAuthenticated = !!token;
-
-  /** 是否新用户 */
-  const isNewUser = user?.is_new_user;
-
-  return {
+  const value = useMemo(() => ({
     user,
     token,
     loading,
-    isAuthenticated,
-    isNewUser,
+    isAuthenticated: !!token,
+    isNewUser: user?.is_new_user,
     login,
     logout,
     updateUser
-  };
+  }), [user, token, loading, login, logout, updateUser]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+
+  return context;
 }
 
 export default useAuth;

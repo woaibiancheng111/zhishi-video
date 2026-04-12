@@ -4,14 +4,14 @@
  */
 const jwt = require('jsonwebtoken');
 const config = require('../config');
+const { getDb } = require('../models');
 
 /**
  * JWT 认证中间件
  * 验证 token 并将 user_id 挂载到 req.user
  */
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   try {
-    // 获取 Authorization header
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -21,7 +21,6 @@ const authMiddleware = (req, res, next) => {
       });
     }
 
-    // 提取 Bearer token
     const parts = authHeader.split(' ');
     if (parts.length !== 2 || parts[0] !== 'Bearer') {
       return res.status(401).json({
@@ -31,14 +30,20 @@ const authMiddleware = (req, res, next) => {
     }
 
     const token = parts[1];
-
-    // 验证 token
     const decoded = jwt.verify(token, config.jwtSecret);
+    const db = getDb();
+    const user = await db.oneOrNone('SELECT id, phone FROM users WHERE id = $1', [decoded.user_id]);
 
-    // 将用户信息挂载到 req.user
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: '登录状态已失效，请重新登录'
+      });
+    }
+
     req.user = {
-      user_id: decoded.user_id,
-      phone: decoded.phone
+      user_id: user.id,
+      phone: user.phone
     };
 
     next();

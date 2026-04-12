@@ -91,7 +91,15 @@ function Home() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>推荐</h1>
+        <div className="page-header-row">
+          <div>
+            <h1>推荐</h1>
+            <p>为你精选更适合当前职业方向的学习内容</p>
+          </div>
+          <button className="btn btn-outline btn-sm" onClick={handleRefresh}>
+            刷新推荐
+          </button>
+        </div>
         {refreshing && (
           <div className="pull-refresh">刷新中...</div>
         )}
@@ -102,8 +110,7 @@ function Home() {
           <div className="empty-state-icon">📺</div>
           <div className="empty-state-text">暂无推荐内容，下拉刷新试试</div>
           <button
-            className="btn btn-outline btn-sm"
-            style={{ marginTop: 16 }}
+            className="btn btn-outline btn-sm section-action"
             onClick={handleRefresh}
           >
             刷新
@@ -118,9 +125,9 @@ function Home() {
           </div>
 
           {loadingMore && (
-            <div className="loading" style={{ padding: 20 }}>
-              <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }}></div>
-              <span style={{ fontSize: 13 }}>加载更多...</span>
+            <div className="loading inline-loading">
+              <div className="loading-spinner"></div>
+              <span>加载更多...</span>
             </div>
           )}
 

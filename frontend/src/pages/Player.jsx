@@ -98,6 +98,7 @@ function Player() {
       }
     } catch (err) {
       console.error('点赞失败:', err);
+      alert(err?.message || '点赞失败，请重新登录后重试');
     }
   };
 
@@ -118,6 +119,7 @@ function Player() {
       }
     } catch (err) {
       console.error('收藏操作失败:', err);
+      alert(err?.message || '收藏失败，请重新登录后重试');
     }
   };
 
@@ -261,7 +263,12 @@ function Player() {
                     <div className="video-creator-name">{video.creator?.nickname || '匿名创作者'}</div>
                     <div className="player-channel-sub">知识领域创作者</div>
                   </div>
-                  <button className="player-channel-btn">关注</button>
+                  <button
+                    className="player-channel-btn"
+                    onClick={() => alert('关注功能开发中，敬请期待')}
+                  >
+                    关注
+                  </button>
                 </div>
 
                 <div className="video-description player-desc-box">{video.description}</div>

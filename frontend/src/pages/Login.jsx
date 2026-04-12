@@ -3,7 +3,7 @@
  * 手机号输入 + 验证码输入（验证码固定1234）
  * 登录后跳转首页，首次登录引导设置职业方向
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { updateCareerProfile } from '../services/api';
@@ -41,6 +41,14 @@ function Login() {
   const [countdown, setCountdown] = useState(0);
   const [step, setStep] = useState('login'); // login -> career
   const [selectedCareer, setSelectedCareer] = useState(null);
+
+  useEffect(() => {
+    const expiredMessage = sessionStorage.getItem('auth_expired_message');
+    if (expiredMessage) {
+      setError(expiredMessage);
+      sessionStorage.removeItem('auth_expired_message');
+    }
+  }, []);
 
   // 发送验证码（模拟）
   const handleSendCode = () => {

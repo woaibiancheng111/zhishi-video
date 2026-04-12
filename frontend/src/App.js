@@ -10,12 +10,46 @@ import Favorites from './pages/Favorites';
 import Profile from './pages/Profile';
 import Notes from './pages/Notes';
 import History from './pages/History';
+import Roadmaps from './pages/Roadmaps';
+import RoadmapDetail from './pages/RoadmapDetail';
+import CreatorStudio from './pages/CreatorStudio';
+import Settings from './pages/Settings';
+import Feedback from './pages/Feedback';
+import About from './pages/About';
 import { useAuth } from './hooks/useAuth';
 
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="loading">
+        <div className="loading-spinner"></div>
+        <span>正在恢复登录状态...</span>
+      </div>
+    );
+  }
+
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
 function App() {
-  const { isAuthenticated } = useAuth();
+  const { loading } = useAuth();
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
+
+  if (loading && !isLoginPage) {
+    return (
+      <div className="app">
+        <div className="app-content">
+          <div className="loading">
+            <div className="loading-spinner"></div>
+            <span>正在加载应用...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`app ${isLoginPage ? 'app-auth' : ''}`}>
@@ -27,10 +61,16 @@ function App() {
           <Route path="/category" element={<Category />} />
           <Route path="/search" element={<Search />} />
           <Route path="/video/:id" element={<Player />} />
-          <Route path="/favorites" element={isAuthenticated ? <Favorites /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={isAuthenticated ? <Profile /> : <Navigate to="/login" />} />
-          <Route path="/notes" element={isAuthenticated ? <Notes /> : <Navigate to="/login" />} />
-          <Route path="/history" element={isAuthenticated ? <History /> : <Navigate to="/login" />} />
+          <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
+          <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+          <Route path="/roadmaps" element={<Roadmaps />} />
+          <Route path="/roadmaps/:id" element={<RoadmapDetail />} />
+          <Route path="/creator" element={<ProtectedRoute><CreatorStudio /></ProtectedRoute>} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/feedback" element={<Feedback />} />
+          <Route path="/about" element={<About />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
