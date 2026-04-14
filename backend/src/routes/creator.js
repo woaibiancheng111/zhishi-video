@@ -7,7 +7,7 @@ const { getDb } = require('../models');
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
     const db = await getDb();
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
     
     const result = await db.query(`
       SELECT 
@@ -42,7 +42,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
 router.get('/videos', authMiddleware, async (req, res) => {
   try {
     const db = await getDb();
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
     
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;

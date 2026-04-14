@@ -13,6 +13,8 @@ function Search() {
   const [results, setResults] = useState([]);
   const [hotKeywords, setHotKeywords] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -41,7 +43,9 @@ function Search() {
     setSearched(true);
     setPage(1);
     setResults([]);
+    setError('');
     setLoading(true);
+    setLoadingMore(false);
 
     try {
       const res = await searchVideos(keyword, 20, 1);
@@ -52,6 +56,8 @@ function Search() {
       }
     } catch (err) {
       console.error('搜索失败:', err);
+      setError('搜索失败，请稍后重试');
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -59,21 +65,21 @@ function Search() {
 
   // 加载更多
   const handleLoadMore = async () => {
-    if (loading || !hasMore) return;
+    if (loading || loadingMore || !hasMore) return;
     const nextPage = page + 1;
-    setPage(nextPage);
-    setLoading(true);
+    setLoadingMore(true);
 
     try {
       const res = await searchVideos(query, 20, nextPage);
       if (res.success && res.data) {
         setResults((prev) => [...prev, ...(res.data.list || [])]);
+        setPage(nextPage);
         setHasMore(res.data.pagination?.page < res.data.pagination?.total_pages);
       }
     } catch (err) {
       console.error('加载更多失败:', err);
     } finally {
-      setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -93,7 +99,7 @@ function Search() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [searched, hasMore, page, query]);
+  }, [searched, hasMore, page, query, loadingMore, loading]);
 
   return (
     <div className="page">
@@ -109,6 +115,14 @@ function Search() {
               <div className="loading-spinner"></div>
               <span>搜索中...</span>
             </div>
+          ) : error && results.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">⚠️</div>
+              <div className="empty-state-text">{error}</div>
+              <button className="btn btn-outline btn-sm section-action" onClick={() => handleSearch(query)}>
+                重试
+              </button>
+            </div>
           ) : results.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">🔍</div>
@@ -118,12 +132,9 @@ function Search() {
             </div>
           ) : (
             <>
-              <div style={{
-                padding: '8px 0',
-                fontSize: 13,
-                color: '#94A3B8'
-              }}>
-                找到 {total} 个与「{query}」相关的结果
+              <div className="search-results-header">
+                <span>找到 <strong>{total}</strong> 个与 <span className="search-keyword">「{query}」</span> 相关的结果</span>
+                <span>持续为你推荐相关主题</span>
               </div>
               <div className="video-grid">
                 {results.map((video) => (
@@ -131,7 +142,7 @@ function Search() {
                 ))}
               </div>
 
-              {loading && (
+              {loadingMore && (
                 <div className="loading" style={{ padding: 20 }}>
                   <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }}></div>
                   <span style={{ fontSize: 13 }}>加载更多...</span>

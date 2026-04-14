@@ -27,6 +27,8 @@ function Notes() {
   const navigate = useNavigate();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
@@ -36,7 +38,13 @@ function Notes() {
   }, []);
 
   const fetchNotes = async (pageNum) => {
-    setLoading(true);
+    if (pageNum === 1) {
+      setLoading(true);
+      setError('');
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
       const res = await getNotes(undefined, pageNum);
       if (res.success && res.data) {
@@ -50,8 +58,13 @@ function Notes() {
       }
     } catch (err) {
       console.error('获取笔记失败:', err);
+      if (pageNum === 1) {
+        setError('获取笔记失败，请稍后重试');
+        setNotes([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -66,6 +79,7 @@ function Notes() {
   };
 
   const handleLoadMore = () => {
+    if (loadingMore || !hasMore) return;
     const nextPage = page + 1;
     setPage(nextPage);
     fetchNotes(nextPage);
@@ -74,13 +88,31 @@ function Notes() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>我的笔记</h1>
+        <div className="page-header-main">
+          <div className="page-kicker">Knowledge notes</div>
+          <h1>我的笔记</h1>
+          <p>把视频里的关键片段、灵感和方法论沉淀成你自己的学习资产。</p>
+        </div>
       </div>
 
       {loading && notes.length === 0 ? (
         <div className="loading">
           <div className="loading-spinner"></div>
           <span>加载中...</span>
+        </div>
+      ) : error && notes.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">⚠️</div>
+          <div className="empty-state-text">{error}</div>
+          <button
+            className="btn btn-outline btn-sm section-action"
+            onClick={() => {
+              setPage(1);
+              fetchNotes(1);
+            }}
+          >
+            重试
+          </button>
         </div>
       ) : notes.length === 0 ? (
         <div className="empty-state">
@@ -99,8 +131,9 @@ function Notes() {
         </div>
       ) : (
         <>
-          <div style={{ padding: '8px 0', fontSize: 13, color: '#94A3B8' }}>
-            共 {total} 条笔记
+          <div className="page-summary-bar">
+            <span>共 <strong>{total}</strong> 条笔记</span>
+            <span>按视频与时间点整理</span>
           </div>
 
           <div className="notes-page-list">
@@ -157,10 +190,10 @@ function Notes() {
             <button
               className="load-more-btn"
               onClick={handleLoadMore}
-              disabled={loading}
+              disabled={loadingMore}
               style={{ width: '100%', marginTop: 12 }}
             >
-              {loading ? '加载中...' : '加载更多'}
+              {loadingMore ? '加载中...' : '加载更多'}
             </button>
           )}
 

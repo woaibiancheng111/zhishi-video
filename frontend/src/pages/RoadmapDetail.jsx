@@ -15,12 +15,14 @@ const RoadmapDetail = () => {
 
   const fetchRoadmapDetail = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await api.get(`/roadmaps/${id}`);
-      setRoadmap(response.data.data);
+      const res = await api.get(`/roadmaps/${id}`);
+      setRoadmap(res.data);
     } catch (err) {
       console.error('Failed to fetch roadmap detail', err);
       setError('无法获取路线图详情，请稍后再试');
+      setRoadmap(null);
     } finally {
       setLoading(false);
     }

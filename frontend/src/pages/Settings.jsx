@@ -30,7 +30,11 @@ const Settings = () => {
         </button>
       </div>
       <div style={{ marginTop: '16px' }}>
-        <button className="btn" onClick={() => { localStorage.removeItem('token'); window.location.href = '/login'; }} style={{ width: '100%', padding: '14px', backgroundColor: 'var(--bg-white)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '15px', color: 'var(--text-secondary)' }}>
+        <button className="btn" onClick={() => {
+          localStorage.removeItem('zhishi_token');
+          localStorage.removeItem('zhishi_user');
+          window.location.href = '/login';
+        }} style={{ width: '100%', padding: '14px', backgroundColor: 'var(--bg-white)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '15px', color: 'var(--text-secondary)' }}>
           退出登录
         </button>
       </div>

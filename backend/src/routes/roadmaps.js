@@ -26,7 +26,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const db = await getDb();
     const roadmapId = req.params.id;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     // 取得路线图信息
     const roadmapResult = await db.query('SELECT * FROM roadmaps WHERE id = $1', [roadmapId]);

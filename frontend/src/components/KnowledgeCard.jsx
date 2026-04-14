@@ -2,22 +2,29 @@
  * KnowledgeCard - 知识卡片弹窗组件
  * 显示摘要、关键要点列表、思维导图
  */
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getKnowledgeCard, addFavorite } from '../services/api';
+import { getKnowledgeCard, addFavorite, removeFavorite } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
-function KnowledgeCard({ videoId, visible, onClose, onOpenNotes }) {
+function KnowledgeCard({ videoId, visible, onClose, onOpenNotes, favorited = false, favoriteId = null, onFavoriteChange }) {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+
+  const redirectToLogin = (message) => {
+    sessionStorage.setItem('auth_prompt_message', message);
+    navigate('/login');
+  };
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [favoriteMessage, setFavoriteMessage] = useState('');
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!visible) {
       setCopied(false);
+      setFavoriteMessage('');
     }
   }, [visible]);
 
@@ -29,6 +36,7 @@ function KnowledgeCard({ videoId, visible, onClose, onOpenNotes }) {
 
   const fetchCard = async () => {
     setLoading(true);
+    setCard(null);
     try {
       const res = await getKnowledgeCard(videoId);
       if (res.success) {
@@ -36,6 +44,7 @@ function KnowledgeCard({ videoId, visible, onClose, onOpenNotes }) {
       }
     } catch (err) {
       console.error('获取知识卡片失败:', err);
+      setCard(null);
     } finally {
       setLoading(false);
     }
@@ -59,18 +68,31 @@ function KnowledgeCard({ videoId, visible, onClose, onOpenNotes }) {
 
   const handleFavorite = async () => {
     if (!isAuthenticated) {
-      navigate('/login');
+      redirectToLogin('登录后即可收藏知识卡片');
       return;
     }
 
     setSaving(true);
+    setFavoriteMessage('');
     try {
-      const res = await addFavorite(videoId);
-      if (res.success) {
-        alert('已加入收藏，稍后可以去收藏夹复习');
+      if (favorited) {
+        if (!favoriteId) {
+          throw new Error('未找到收藏记录');
+        }
+        const res = await removeFavorite(favoriteId);
+        if (res.success) {
+          setFavoriteMessage('已从收藏中移除');
+          onFavoriteChange?.({ favorited: false, favoriteId: null });
+        }
+      } else {
+        const res = await addFavorite(videoId);
+        if (res.success) {
+          setFavoriteMessage('已加入收藏，稍后可以去收藏夹复习');
+          onFavoriteChange?.({ favorited: true, favoriteId: res.data?.id || null });
+        }
       }
     } catch (err) {
-      alert(err?.message || '加入收藏失败');
+      setFavoriteMessage(err?.message || (favorited ? '取消收藏失败' : '加入收藏失败'));
     } finally {
       setSaving(false);
     }
@@ -78,7 +100,7 @@ function KnowledgeCard({ videoId, visible, onClose, onOpenNotes }) {
 
   const handleOpenNotes = () => {
     if (!isAuthenticated) {
-      navigate('/login');
+      redirectToLogin('登录后即可记录学习笔记');
       return;
     }
 
@@ -91,7 +113,7 @@ function KnowledgeCard({ videoId, visible, onClose, onOpenNotes }) {
   return (
     <div className="knowledge-card-overlay" onClick={onClose}>
       <div className="knowledge-card-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="knowledge-card-close" onClick={onClose}>x</button>
+        <button className="knowledge-card-close" onClick={onClose}>×</button>
 
         {loading ? (
           <div className="loading">
@@ -101,16 +123,16 @@ function KnowledgeCard({ videoId, visible, onClose, onOpenNotes }) {
         ) : card ? (
           <>
             <h2>知识卡片</h2>
-            <div style={{ fontSize: 13, color: '#64748B', marginBottom: 12 }}>
+            <div className="modal-muted-copy">
               把这条视频的重点快速提炼出来，方便收藏、复习和继续记笔记。
             </div>
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div className="knowledge-card-toolbar">
               <button className="btn btn-outline btn-sm" onClick={handleCopy}>
                 {copied ? '已复制要点' : '复制要点'}
               </button>
               <button className="btn btn-primary btn-sm" onClick={handleFavorite} disabled={saving}>
-                {saving ? '保存中...' : '加入收藏'}
+                {saving ? '处理中...' : (favorited ? '取消收藏' : '加入收藏')}
               </button>
               <button className="btn btn-outline btn-sm" onClick={handleOpenNotes}>
                 去记笔记
@@ -120,15 +142,16 @@ function KnowledgeCard({ videoId, visible, onClose, onOpenNotes }) {
               </button>
             </div>
 
-            {/* 摘要 */}
+            {favoriteMessage && (
+              <div className="modal-muted-copy">{favoriteMessage}</div>
+            )}
+
+            <div className="knowledge-card-section-title">视频精华</div>
             <div className="knowledge-card-summary">
               {card.summary}
             </div>
 
-            {/* 关键要点 */}
-            <h3 style={{ fontSize: 15, fontWeight: 600, color: '#1B2838', marginBottom: 10 }}>
-              关键要点
-            </h3>
+            <div className="knowledge-card-section-title">关键要点</div>
             <ul className="knowledge-card-points">
               {card.key_points && card.key_points.map((point, index) => (
                 <li key={index}>{point}</li>

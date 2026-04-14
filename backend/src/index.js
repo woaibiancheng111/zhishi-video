@@ -17,6 +17,9 @@ const favoriteRoutes = require('./routes/favorites');
 const userRoutes = require('./routes/users');
 const commentRoutes = require('./routes/comments');
 const noteRoutes = require('./routes/notes');
+const aiRoutes = require('./routes/ai');
+
+
 
 const app = express();
 const PORT = config.port;
@@ -73,6 +76,7 @@ app.use('/api/v1/favorites', favoriteRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/comments', commentRoutes);
 app.use('/api/v1/notes', noteRoutes);
+app.use('/api/v1/ai', aiRoutes);
 
 // 404 处理
 app.use((req, res) => {

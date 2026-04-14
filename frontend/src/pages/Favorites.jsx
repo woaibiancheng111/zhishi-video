@@ -14,6 +14,7 @@ function Favorites() {
   const [items, setItems] = useState([]);
   const [activeFolder, setActiveFolder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
@@ -48,22 +49,27 @@ function Favorites() {
       if (res.success) {
         setNewFolderName('');
         setShowCreateFolder(false);
+        setFeedbackMessage('收藏夹创建成功');
         fetchFavorites();
       }
     } catch (err) {
       console.error('创建收藏夹失败:', err);
-      alert(err?.message || '创建收藏夹失败，请稍后重试');
+      setFeedbackMessage(err?.message || '创建收藏夹失败，请稍后重试');
     }
   };
 
   // 取消收藏
   const handleRemoveFavorite = async (favoriteId) => {
+    setFeedbackMessage('');
     try {
-      await removeFavorite(favoriteId);
-      fetchFavorites();
+      const res = await removeFavorite(favoriteId);
+      if (res.success) {
+        setItems((prev) => prev.filter((item) => item.favorite_id !== favoriteId));
+        setFeedbackMessage('已取消收藏');
+      }
     } catch (err) {
       console.error('取消收藏失败:', err);
-      alert(err?.message || '取消收藏失败，请稍后重试');
+      setFeedbackMessage(err?.message || '取消收藏失败，请稍后重试');
     }
   };
 
@@ -71,13 +77,19 @@ function Favorites() {
     <div className="page">
       <div className="page-header">
         <div className="page-header-row">
-          <h1>我的收藏</h1>
-          <button
-            className="btn btn-sm btn-outline"
-            onClick={() => setShowCreateFolder(!showCreateFolder)}
-          >
-            {showCreateFolder ? '取消' : '+ 新建收藏夹'}
-          </button>
+          <div className="page-header-main">
+            <div className="page-kicker">Review library</div>
+            <h1>我的收藏</h1>
+            <p>把值得反复回看的内容收进自己的复习资料夹，按主题持续消化。</p>
+          </div>
+          <div className="page-header-actions">
+            <button
+              className="btn btn-sm btn-outline"
+              onClick={() => setShowCreateFolder(!showCreateFolder)}
+            >
+              {showCreateFolder ? '取消' : '+ 新建收藏夹'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -116,6 +128,15 @@ function Favorites() {
             </div>
           ))}
         </div>
+      )}
+
+      <div className="page-summary-bar">
+        <span>{activeFolder === null ? '全部收藏内容' : '当前收藏夹内容'}</span>
+        <span>{items.length} 条可复习内容</span>
+      </div>
+
+      {feedbackMessage && (
+        <div className="modal-muted-copy" style={{ marginBottom: 12 }}>{feedbackMessage}</div>
       )}
 
       {/* 收藏内容 */}
