@@ -13,12 +13,14 @@ const Roadmaps = () => {
 
   const fetchRoadmaps = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await api.get('/roadmaps');
-      setRoadmaps(response.data.data || []);
+      const res = await api.get('/roadmaps');
+      setRoadmaps(res.data || []);
     } catch (err) {
       console.error('Failed to fetch roadmaps', err);
       setError('无法获取学习路线图，请稍后再试');
+      setRoadmaps([]);
     } finally {
       setLoading(false);
     }

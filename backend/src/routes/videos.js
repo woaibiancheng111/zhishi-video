@@ -134,6 +134,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
     // 如果用户已登录，查询是否已点赞
     let isLiked = false;
     let isFavorited = false;
+    let favoriteId = null;
     if (req.user) {
       const like = await db.oneOrNone(
         'SELECT id FROM user_behaviors WHERE user_id = $1 AND video_id = $2 AND behavior_type = $3',
@@ -146,6 +147,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
         [req.user.user_id, id]
       );
       isFavorited = !!fav;
+      favoriteId = fav?.id || null;
     }
 
     res.json({
@@ -154,7 +156,8 @@ router.get('/:id', optionalAuth, async (req, res) => {
         ...video,
         creator,
         is_liked: isLiked,
-        is_favorited: isFavorited
+        is_favorited: isFavorited,
+        favorite_id: favoriteId
       }
     });
   } catch (error) {

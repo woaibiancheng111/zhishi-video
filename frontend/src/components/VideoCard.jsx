@@ -1,6 +1,6 @@
 /**
  * VideoCard - 视频卡片组件
- * 显示封面图、标题、创作者、标签、播放数、点赞数
+ * 显示封面图、标题、分类、播放数、点赞数
  */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -30,6 +30,10 @@ function VideoCard({ video }) {
           alt={video.title}
           loading="lazy"
         />
+        <div className="video-card-cover-overlay" />
+        <div className="video-card-cover-top">
+          <span className="video-card-category-badge">{video.category_name || '未分类'}</span>
+        </div>
         {video.duration > 0 && (
           <span className="video-card-duration">
             {Math.floor(video.duration / 60)}:{String(video.duration % 60).padStart(2, '0')}
@@ -41,7 +45,7 @@ function VideoCard({ video }) {
           {video.title}
         </h3>
         <div className="video-card-meta">
-          <span className="video-card-category">{video.category_name || '未分类'}</span>
+          <span className="video-card-category">精选内容</span>
           <span className="video-card-stats">
             <span>{formatCount(video.play_count)}播放</span>
             <span>{formatCount(video.like_count)}赞</span>

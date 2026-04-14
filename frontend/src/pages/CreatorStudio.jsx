@@ -6,6 +6,7 @@ const CreatorStudio = () => {
   const [stats, setStats] = useState(null);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -14,21 +15,26 @@ const CreatorStudio = () => {
 
   const fetchCreatorData = async () => {
     setLoading(true);
+    setError('');
     try {
       const [statsRes, videosRes] = await Promise.all([
         api.get('/creator/stats'),
         api.get('/creator/videos')
       ]);
-      setStats(statsRes.data.data);
-      setVideos(videosRes.data.data || []);
+      setStats(statsRes.data || null);
+      setVideos(videosRes.data || []);
     } catch (err) {
       console.error('获取创作者数据失败:', err);
+      setError('获取创作者数据失败，请稍后重试');
+      setStats(null);
+      setVideos([]);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) return <div className="loading"><div className="loading-spinner"></div><span>加载中...</span></div>;
+  if (error) return <div className="page" style={{ padding: '40px', color: 'var(--danger)', textAlign: 'center' }}>{error}</div>;
 
   return (
     <div className="page">

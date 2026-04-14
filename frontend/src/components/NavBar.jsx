@@ -68,16 +68,26 @@ function NavBar() {
 
   return (
     <nav className="tab-bar">
-      {tabs.map((tab) => (
-        <button
-          key={tab.path}
-          className={`tab-item ${isActive(tab.path) ? 'active' : ''}`}
-          onClick={() => navigate(tab.path)}
-        >
-          <span className="tab-icon">{tab.icon}</span>
-          <span className="tab-label">{tab.label}</span>
-        </button>
-      ))}
+      <div className="tab-bar-brand">
+        <span className="tab-bar-brand-mark">知</span>
+        <div className="tab-bar-brand-text">
+          <strong>知视</strong>
+          <span>Knowledge Flow</span>
+        </div>
+      </div>
+
+      <div className="tab-bar-nav">
+        {tabs.map((tab) => (
+          <button
+            key={tab.path}
+            className={`tab-item ${isActive(tab.path) ? 'active' : ''}`}
+            onClick={() => navigate(tab.path)}
+          >
+            <span className="tab-icon">{tab.icon}</span>
+            <span className="tab-label">{tab.label}</span>
+          </button>
+        ))}
+      </div>
     </nav>
   );
 }

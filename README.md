@@ -170,7 +170,7 @@ cp .env.example .env
 ### 2. 使用 Docker Compose 启动
 
 ```bash
-docker-compose up --build
+docker-compose up --build  或者  docker compose up --build
 ```
 
 启动后可访问：

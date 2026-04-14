@@ -22,10 +22,18 @@ function formatTime(dateStr) {
 function Comments({ videoId }) {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+
+  const redirectToLogin = (message) => {
+    sessionStorage.setItem('auth_prompt_message', message);
+    navigate('/login');
+  };
   const [comments, setComments] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -38,7 +46,13 @@ function Comments({ videoId }) {
   }, [videoId]);
 
   const fetchComments = async (pageNum) => {
-    setLoading(true);
+    if (pageNum === 1) {
+      setLoading(true);
+      setError('');
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
       const res = await getComments(videoId, pageNum, 20);
       if (res.success && res.data) {
@@ -52,44 +66,58 @@ function Comments({ videoId }) {
       }
     } catch (err) {
       console.error('获取评论失败:', err);
+      if (pageNum === 1) {
+        setError('获取评论失败，请稍后重试');
+        setComments([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   const handleSubmit = async () => {
     if (!isAuthenticated) {
-      navigate('/login');
+      redirectToLogin('登录后即可发表评论');
       return;
     }
     if (!inputValue.trim()) return;
 
     setSubmitting(true);
+    setFeedbackMessage('');
     try {
       const res = await postComment(videoId, inputValue.trim());
       if (res.success && res.data) {
         setComments((prev) => [res.data, ...prev]);
         setTotal((t) => t + 1);
         setInputValue('');
+        setFeedbackMessage('评论已发表');
       }
     } catch (err) {
       console.error('发表评论失败:', err);
+      setFeedbackMessage(err?.message || '发表评论失败，请稍后重试');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (commentId) => {
+    setFeedbackMessage('');
     try {
-      await deleteComment(commentId);
-      setComments((prev) => prev.filter((c) => c.id !== commentId));
-      setTotal((t) => Math.max(t - 1, 0));
+      const res = await deleteComment(commentId);
+      if (res.success) {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+        setTotal((t) => Math.max(t - 1, 0));
+        setFeedbackMessage('评论已删除');
+      }
     } catch (err) {
       console.error('删除评论失败:', err);
+      setFeedbackMessage(err?.message || '删除评论失败，请稍后重试');
     }
   };
 
   const handleLoadMore = () => {
+    if (loadingMore || !hasMore) return;
     const nextPage = page + 1;
     setPage(nextPage);
     fetchComments(nextPage);
@@ -112,7 +140,7 @@ function Comments({ videoId }) {
             onChange={(e) => setInputValue(e.target.value)}
             maxLength={500}
             rows={2}
-            onFocus={() => !isAuthenticated && navigate('/login')}
+            onFocus={() => !isAuthenticated && redirectToLogin('登录后即可发表评论')}
           />
           <div className="comment-input-footer">
             <span className="comment-char-count">{inputValue.length}/500</span>
@@ -127,11 +155,23 @@ function Comments({ videoId }) {
         </div>
       </div>
 
+      {feedbackMessage && (
+        <div className="modal-muted-copy" style={{ marginBottom: 12 }}>{feedbackMessage}</div>
+      )}
+
       {/* 评论列表 */}
       {loading && comments.length === 0 ? (
         <div className="loading" style={{ padding: '20px 0' }}>
           <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }}></div>
           <span style={{ fontSize: 13 }}>加载评论...</span>
+        </div>
+      ) : error && comments.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">⚠️</div>
+          <div className="empty-state-text">{error}</div>
+          <button className="btn btn-outline btn-sm section-action" onClick={() => fetchComments(1)}>
+            重试
+          </button>
         </div>
       ) : comments.length === 0 ? (
         <div className="comments-empty">
@@ -163,8 +203,8 @@ function Comments({ videoId }) {
           ))}
 
           {hasMore && (
-            <button className="load-more-btn" onClick={handleLoadMore} disabled={loading}>
-              {loading ? '加载中...' : '加载更多评论'}
+            <button className="load-more-btn" onClick={handleLoadMore} disabled={loadingMore}>
+              {loadingMore ? '加载中...' : '加载更多评论'}
             </button>
           )}
         </div>

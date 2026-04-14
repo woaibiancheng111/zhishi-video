@@ -18,6 +18,7 @@ function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
   const [learningSnapshot, setLearningSnapshot] = useState({
     latestHistory: null,
     latestNote: null,
@@ -28,6 +29,9 @@ function Home() {
   // 加载推荐Feed
   const fetchFeed = useCallback(async (currentCursor = 0) => {
     try {
+      if (currentCursor === 0) {
+        setError('');
+      }
       const res = await getFeed(currentCursor);
       if (res.success && res.data) {
         if (currentCursor === 0) {
@@ -40,6 +44,10 @@ function Home() {
       }
     } catch (err) {
       console.error('获取推荐Feed失败:', err);
+      if (currentCursor === 0) {
+        setError('获取推荐内容失败，请稍后重试');
+        setVideos([]);
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -132,13 +140,16 @@ function Home() {
     <div className="page">
       <div className="page-header">
         <div className="page-header-row">
-          <div>
+          <div className="page-header-main">
+            <div className="page-kicker">Daily feed</div>
             <h1>推荐</h1>
-            <p>为你精选更适合当前职业方向的学习内容</p>
+            <p>为你精选更适合当前职业方向的学习内容，让每次打开都有明确的下一步。</p>
           </div>
-          <button className="btn btn-outline btn-sm" onClick={handleRefresh}>
-            刷新推荐
-          </button>
+          <div className="page-header-actions">
+            <button className="btn btn-outline btn-sm" onClick={handleRefresh}>
+              刷新推荐
+            </button>
+          </div>
         </div>
         {refreshing && (
           <div className="pull-refresh">刷新中...</div>
@@ -146,18 +157,19 @@ function Home() {
       </div>
 
       {isAuthenticated && (
-        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-          <div className="page-header-row" style={{ marginBottom: 12 }}>
+        <div className="card glass-card home-hero-card">
+          <div className="panel-header home-hero-heading">
             <div>
-              <h3 style={{ margin: 0, fontSize: 18 }}>今日学习</h3>
-              <p style={{ margin: '6px 0 0', fontSize: 13, color: '#94A3B8' }}>从你上次停下来的地方继续。</p>
+              <div className="hero-chip">Today&apos;s focus</div>
+              <div className="home-hero-title">今日学习</div>
+              <div className="home-hero-copy">从你上次停下来的地方继续，把灵感、笔记和收藏重新串起来。</div>
             </div>
           </div>
 
           {snapshotLoading ? (
-            <div style={{ fontSize: 13, color: '#94A3B8' }}>正在整理你的学习进度...</div>
+            <div className="modal-muted-copy">正在整理你的学习进度...</div>
           ) : (
-            <div style={{ display: 'grid', gap: 10 }}>
+            <div className="home-hero-grid">
               <button
                 className="related-item"
                 onClick={() => learningSnapshot.latestHistory ? navigate(`/video/${learningSnapshot.latestHistory.video_id}`) : navigate('/history')}
@@ -167,6 +179,7 @@ function Home() {
                   <div className="related-meta">
                     <span>{learningSnapshot.latestHistory?.title || '去历史页看看最近学到哪里了'}</span>
                   </div>
+                  <div className="action-link">回到最近进度 →</div>
                 </div>
               </button>
 
@@ -179,6 +192,7 @@ function Home() {
                   <div className="related-meta">
                     <span>{learningSnapshot.latestNote?.video_title || '还没有笔记，去记录第一条学习收获'}</span>
                   </div>
+                  <div className="action-link">打开高亮片段 →</div>
                 </div>
               </button>
 
@@ -188,6 +202,7 @@ function Home() {
                   <div className="related-meta">
                     <span>当前已有 {learningSnapshot.favoritesCount} 条收藏内容可复习</span>
                   </div>
+                  <div className="action-link">查看稍后复习清单 →</div>
                 </div>
               </button>
             </div>
@@ -195,7 +210,23 @@ function Home() {
         </div>
       )}
 
-      {videos.length === 0 ? (
+      <div className="home-feed-intro">
+        <div className="home-feed-intro-copy">本次推荐会结合你的职业方向与最近学习内容动态更新。</div>
+        {videos.length > 0 && <div className="metric-chip">共 {videos.length} 条推荐</div>}
+      </div>
+
+      {error && videos.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">⚠️</div>
+          <div className="empty-state-text">{error}</div>
+          <button
+            className="btn btn-outline btn-sm section-action"
+            onClick={handleRefresh}
+          >
+            重试
+          </button>
+        </div>
+      ) : videos.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">📺</div>
           <div className="empty-state-text">暂无推荐内容，下拉刷新试试</div>

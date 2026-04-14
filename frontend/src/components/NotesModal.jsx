@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNotes, createNote, updateNote, deleteNote } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 function formatTimestamp(sec) {
   if (!sec) return '';
@@ -25,21 +26,31 @@ function formatDate(dateStr) {
 
 function NotesModal({ videoId, visible, onClose, currentTimestamp = 0 }) {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
 
+  const redirectToLogin = (message) => {
+    sessionStorage.setItem('auth_prompt_message', message);
+    onClose?.();
+    navigate('/login');
+  };
+
   useEffect(() => {
-    if (visible && videoId) {
+    if (visible && videoId && isAuthenticated) {
       fetchNotes();
     }
-  }, [visible, videoId]);
+  }, [visible, videoId, isAuthenticated]);
 
   const fetchNotes = async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await getNotes(videoId);
       if (res.success && res.data) {
@@ -47,31 +58,45 @@ function NotesModal({ videoId, visible, onClose, currentTimestamp = 0 }) {
       }
     } catch (err) {
       console.error('获取笔记失败:', err);
+      setError('获取笔记失败，请稍后重试');
+      setNotes([]);
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreate = async () => {
+    if (!isAuthenticated) {
+      redirectToLogin('登录后即可保存学习笔记');
+      return;
+    }
     if (!inputValue.trim()) return;
 
     setSubmitting(true);
+    setFeedbackMessage('');
     try {
       const res = await createNote(videoId, inputValue.trim(), currentTimestamp);
       if (res.success && res.data) {
         setNotes((prev) => [res.data, ...prev]);
         setInputValue('');
+        setFeedbackMessage('笔记已保存');
       }
     } catch (err) {
       console.error('创建笔记失败:', err);
+      setFeedbackMessage(err?.message || '保存笔记失败，请稍后重试');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleEdit = async (id) => {
+    if (!isAuthenticated) {
+      redirectToLogin('登录后即可编辑学习笔记');
+      return;
+    }
     if (!editValue.trim()) return;
 
+    setFeedbackMessage('');
     try {
       const res = await updateNote(id, editValue.trim());
       if (res.success) {
@@ -80,18 +105,29 @@ function NotesModal({ videoId, visible, onClose, currentTimestamp = 0 }) {
         );
         setEditingId(null);
         setEditValue('');
+        setFeedbackMessage('笔记已更新');
       }
     } catch (err) {
       console.error('更新笔记失败:', err);
+      setFeedbackMessage(err?.message || '更新笔记失败，请稍后重试');
     }
   };
 
   const handleDelete = async (id) => {
+    if (!isAuthenticated) {
+      redirectToLogin('登录后即可删除学习笔记');
+      return;
+    }
+    setFeedbackMessage('');
     try {
-      await deleteNote(id);
-      setNotes((prev) => prev.filter((n) => n.id !== id));
+      const res = await deleteNote(id);
+      if (res.success) {
+        setNotes((prev) => prev.filter((n) => n.id !== id));
+        setFeedbackMessage('笔记已删除');
+      }
     } catch (err) {
       console.error('删除笔记失败:', err);
+      setFeedbackMessage(err?.message || '删除笔记失败，请稍后重试');
     }
   };
 
@@ -106,8 +142,11 @@ function NotesModal({ videoId, visible, onClose, currentTimestamp = 0 }) {
     <div className="knowledge-card-overlay" onClick={onClose}>
       <div className="knowledge-card-modal notes-modal" onClick={(e) => e.stopPropagation()}>
         <div className="notes-modal-header">
-          <h2>📝 我的学习笔记</h2>
+          <h2>我的学习笔记</h2>
           <button className="knowledge-card-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-muted-copy">
+          {isAuthenticated ? '在当前时间点记录想法，之后可以一键跳回对应片段继续复盘。' : '登录后即可保存、编辑和管理你的学习笔记。'}
         </div>
 
         {/* 新建笔记 */}
@@ -137,11 +176,23 @@ function NotesModal({ videoId, visible, onClose, currentTimestamp = 0 }) {
           </div>
         </div>
 
+        {feedbackMessage && (
+          <div className="modal-muted-copy">{feedbackMessage}</div>
+        )}
+
         {/* 笔记列表 */}
         {loading ? (
-          <div className="loading" style={{ padding: '20px 0' }}>
-            <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }}></div>
-            <span style={{ fontSize: 13 }}>加载笔记...</span>
+          <div className="loading inline-loading">
+            <div className="loading-spinner"></div>
+            <span>加载笔记...</span>
+          </div>
+        ) : error ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">⚠️</div>
+            <div className="empty-state-text">{error}</div>
+            <button className="btn btn-outline btn-sm section-action" onClick={fetchNotes}>
+              重试
+            </button>
           </div>
         ) : notes.length === 0 ? (
           <div className="notes-empty">还没有笔记，快来记录学习内容吧！</div>
@@ -173,7 +224,7 @@ function NotesModal({ videoId, visible, onClose, currentTimestamp = 0 }) {
                       rows={3}
                       autoFocus
                     />
-                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                    <div className="notes-modal-toolbar" style={{ marginTop: 10 }}>
                       <button
                         className="btn btn-primary btn-sm"
                         onClick={() => handleEdit(note.id)}

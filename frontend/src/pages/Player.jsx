@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getVideoDetail, toggleLike, reportPlay, addFavorite, getFeed } from '../services/api';
+import { getVideoDetail, toggleLike, reportPlay, addFavorite, removeFavorite, getFeed } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import KnowledgeCard from '../components/KnowledgeCard';
 import Comments from '../components/Comments';
@@ -31,6 +31,11 @@ function Player() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
+
+  const redirectToLogin = (message) => {
+    sessionStorage.setItem('auth_prompt_message', message);
+    navigate('/login');
+  };
   const videoRef = useRef(null);
   const [resumeApplied, setResumeApplied] = useState(false);
 
@@ -38,9 +43,11 @@ function Player() {
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [favorited, setFavorited] = useState(false);
+  const [favoriteId, setFavoriteId] = useState(null);
   const [likeCount, setLikeCount] = useState(0);
   const [showCard, setShowCard] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [favoriteMessage, setFavoriteMessage] = useState('');
   const [currentTimestamp, setCurrentTimestamp] = useState(0);
   const [playReported, setPlayReported] = useState(false);
   const [relatedVideos, setRelatedVideos] = useState([]);
@@ -90,6 +97,7 @@ function Player() {
         setVideo(res.data);
         setLiked(res.data.is_liked || false);
         setFavorited(res.data.is_favorited || false);
+        setFavoriteId(res.data.favorite_id || null);
         setLikeCount(res.data.like_count || 0);
       }
     } catch (err) {
@@ -118,7 +126,7 @@ function Player() {
 
   const handleLike = async () => {
     if (!isAuthenticated) {
-      navigate('/login');
+      redirectToLogin('登录后即可点赞这条视频');
       return;
     }
 
@@ -136,22 +144,33 @@ function Player() {
 
   const handleFavorite = async () => {
     if (!isAuthenticated) {
-      navigate('/login');
+      redirectToLogin('登录后即可收藏并稍后复习');
       return;
     }
 
+    setFavoriteMessage('');
     try {
       if (favorited) {
-        setFavorited(false);
+        if (!favoriteId) {
+          throw new Error('未找到收藏记录');
+        }
+        const res = await removeFavorite(favoriteId);
+        if (res.success) {
+          setFavorited(false);
+          setFavoriteId(null);
+          setFavoriteMessage('已取消收藏');
+        }
       } else {
         const res = await addFavorite(parseInt(id, 10));
         if (res.success) {
           setFavorited(true);
+          setFavoriteId(res.data?.id || null);
+          setFavoriteMessage('已加入收藏');
         }
       }
     } catch (err) {
       console.error('收藏操作失败:', err);
-      alert(err?.message || '收藏失败，请重新登录后重试');
+      setFavoriteMessage(err?.message || '收藏失败，请重新登录后重试');
     }
   };
 
@@ -209,7 +228,7 @@ function Player() {
       description: currentTimestamp > 0 ? `在 ${formatDuration(currentTimestamp)} 处补充你的学习笔记` : '记录这条视频给你的关键收获',
       action: () => {
         if (!isAuthenticated) {
-          navigate('/login');
+          redirectToLogin('登录后即可记录学习笔记');
           return;
         }
         setShowNotes(true);
@@ -220,7 +239,13 @@ function Player() {
       key: 'review',
       title: '稍后复习',
       description: '去历史或笔记页继续消化已经学过的内容',
-      action: () => navigate(isAuthenticated ? '/history' : '/login'),
+      action: () => {
+        if (!isAuthenticated) {
+          redirectToLogin('登录后即可查看学习历史');
+          return;
+        }
+        navigate('/history');
+      },
       cta: '查看历史'
     }
   ].filter(Boolean);
@@ -276,55 +301,72 @@ function Player() {
                     <span>{formatCount(likeCount)}次点赞</span>
                     <span>{video.category_name || '未分类'}</span>
                   </div>
+                </div>
 
-                  <div className="video-actions player-actions-inline">
-                    <button className={`video-action-btn ${liked ? 'liked' : ''}`} onClick={handleLike}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                      </svg>
-                      {liked ? '已赞' : '点赞'}
-                    </button>
+                <div className="player-section-card player-section">
+                  <div className="panel-header">
+                    <div>
+                      <div className="page-kicker">Learning actions</div>
+                      <div className="player-side-title" style={{ marginBottom: 0 }}>边看边学</div>
+                      <div className="panel-subtitle">把当前视频转成收藏、知识卡片和时间点笔记。</div>
+                    </div>
+                  </div>
 
-                    <button className={`video-action-btn ${favorited ? 'active' : ''}`} onClick={handleFavorite}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                      </svg>
-                      {favorited ? '已收藏' : '收藏'}
-                    </button>
+                  <div className="player-actions-grid">
+                    {favoriteMessage && (
+                      <div className="modal-muted-copy" style={{ marginBottom: 12 }}>{favoriteMessage}</div>
+                    )}
+                    <div className="player-actions-grid-main">
+                      <button className={`video-action-btn ${favorited ? 'active' : ''}`} onClick={handleFavorite}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        {favorited ? '已收藏' : '加入收藏'}
+                      </button>
 
-                    <button className="video-action-btn" onClick={() => setShowCard(true)}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                        <line x1="8" y1="21" x2="16" y2="21"></line>
-                        <line x1="12" y1="17" x2="12" y2="21"></line>
-                      </svg>
-                      知识卡片
-                    </button>
+                      <button className="video-action-btn active" onClick={() => setShowCard(true)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                          <line x1="8" y1="21" x2="16" y2="21"></line>
+                          <line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
+                        查看知识卡片
+                      </button>
 
-                    <button
-                      className="video-action-btn"
-                      onClick={() => {
-                        if (!isAuthenticated) { navigate('/login'); return; }
-                        setShowNotes(true);
-                      }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 20h9"></path>
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                      </svg>
-                      笔记
-                    </button>
+                      <button
+                        className="video-action-btn active"
+                        onClick={() => {
+                          if (!isAuthenticated) { navigate('/login'); return; }
+                          setShowNotes(true);
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 20h9"></path>
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                        记录笔记
+                      </button>
+                    </div>
 
-                    <button className="video-action-btn" onClick={handleShare}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="18" cy="5" r="3"></circle>
-                        <circle cx="6" cy="12" r="3"></circle>
-                        <circle cx="18" cy="19" r="3"></circle>
-                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                      </svg>
-                      分享
-                    </button>
+                    <div className="player-actions-grid-secondary">
+                      <button className={`video-action-btn ${liked ? 'liked' : ''}`} onClick={handleLike}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                        {liked ? '已赞' : '点赞'}
+                      </button>
+
+                      <button className="video-action-btn" onClick={handleShare}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="18" cy="5" r="3"></circle>
+                          <circle cx="6" cy="12" r="3"></circle>
+                          <circle cx="18" cy="19" r="3"></circle>
+                          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                        </svg>
+                        分享
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -344,33 +386,45 @@ function Player() {
                   </button>
                 </div>
 
-                <div className="video-description player-desc-box">{video.description}</div>
-
-                {video.tags && video.tags.length > 0 && (
-                  <div className="video-tags player-tags-wrap">
-                    {video.tags.map((tag, index) => (
-                      <span key={index} className="tag">#{tag}</span>
-                    ))}
+                <div className="player-section-card player-section">
+                  <div className="panel-header">
+                    <div>
+                      <div className="page-kicker">About this lesson</div>
+                      <div className="player-side-title" style={{ marginBottom: 0 }}>内容摘要</div>
+                    </div>
                   </div>
-                )}
+                  <div className="video-description player-desc-box">{video.description}</div>
 
-                <div className="player-side-card" style={{ marginTop: 24 }}>
-                  <h3 className="player-side-title">学完下一步</h3>
-                  <div className="related-list">
+                  {video.tags && video.tags.length > 0 && (
+                    <div className="video-tags player-tags-wrap">
+                      {video.tags.map((tag, index) => (
+                        <span key={index} className="tag">#{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="player-section-card player-section">
+                  <div className="panel-header">
+                    <div>
+                      <div className="page-kicker">Next move</div>
+                      <div className="player-side-title" style={{ marginBottom: 0 }}>学完下一步</div>
+                      <div className="panel-subtitle">别让这条内容停在已看过，把它继续变成复习、记录和下一条学习动作。</div>
+                    </div>
+                  </div>
+                  <div className="player-next-list">
                     {continueActions.map((item) => (
                       <button
                         key={item.key}
-                        className="related-item"
+                        className="related-item player-next-item"
                         onClick={item.action}
                       >
                         <div className="related-content" style={{ width: '100%' }}>
                           <div className="related-title">{item.title}</div>
-                          <div className="related-meta" style={{ marginBottom: 10 }}>
+                          <div className="related-meta">
                             <span>{item.description}</span>
                           </div>
-                          <div style={{ color: 'var(--primary)', fontSize: 13, fontWeight: 600 }}>
-                            {item.cta} →
-                          </div>
+                          <div className="action-link">{item.cta} →</div>
                         </div>
                       </button>
                     ))}
@@ -426,6 +480,12 @@ function Player() {
       <KnowledgeCard
         videoId={parseInt(id, 10)}
         visible={showCard}
+        favorited={favorited}
+        favoriteId={favoriteId}
+        onFavoriteChange={({ favorited: nextFavorited, favoriteId: nextFavoriteId }) => {
+          setFavorited(nextFavorited);
+          setFavoriteId(nextFavoriteId);
+        }}
         onClose={() => setShowCard(false)}
         onOpenNotes={() => setShowNotes(true)}
       />

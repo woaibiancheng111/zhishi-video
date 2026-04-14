@@ -44,9 +44,13 @@ function Login() {
 
   useEffect(() => {
     const expiredMessage = sessionStorage.getItem('auth_expired_message');
-    if (expiredMessage) {
-      setError(expiredMessage);
+    const promptMessage = sessionStorage.getItem('auth_prompt_message');
+    const nextMessage = expiredMessage || promptMessage;
+
+    if (nextMessage) {
+      setError(nextMessage);
       sessionStorage.removeItem('auth_expired_message');
+      sessionStorage.removeItem('auth_prompt_message');
     }
   }, []);
 

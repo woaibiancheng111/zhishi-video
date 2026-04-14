@@ -28,6 +28,8 @@ function History() {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
@@ -37,7 +39,13 @@ function History() {
   }, []);
 
   const fetchHistory = async (pageNum) => {
-    setLoading(true);
+    if (pageNum === 1) {
+      setLoading(true);
+      setError('');
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
       const res = await getLearningHistory(pageNum);
       if (res.success && res.data) {
@@ -51,12 +59,18 @@ function History() {
       }
     } catch (err) {
       console.error('获取学习历史失败:', err);
+      if (pageNum === 1) {
+        setError('获取学习历史失败，请稍后重试');
+        setHistory([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   const handleLoadMore = () => {
+    if (loadingMore || !hasMore) return;
     const nextPage = page + 1;
     setPage(nextPage);
     fetchHistory(nextPage);
@@ -65,13 +79,31 @@ function History() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>学习历史</h1>
+        <div className="page-header-main">
+          <div className="page-kicker">Learning archive</div>
+          <h1>学习历史</h1>
+          <p>把未完成的内容优先继续，把看过的内容重新转成真正掌握的知识。</p>
+        </div>
       </div>
 
       {loading && history.length === 0 ? (
         <div className="loading">
           <div className="loading-spinner"></div>
           <span>加载中...</span>
+        </div>
+      ) : error && history.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">⚠️</div>
+          <div className="empty-state-text">{error}</div>
+          <button
+            className="btn btn-outline btn-sm section-action"
+            onClick={() => {
+              setPage(1);
+              fetchHistory(1);
+            }}
+          >
+            重试
+          </button>
         </div>
       ) : history.length === 0 ? (
         <div className="empty-state">
@@ -87,8 +119,9 @@ function History() {
         </div>
       ) : (
         <>
-          <div style={{ padding: '8px 0', fontSize: 13, color: '#94A3B8' }}>
-            共学习了 {total} 个视频
+          <div className="page-summary-bar">
+            <span>共学习了 <strong>{total}</strong> 个视频</span>
+            <span>优先展示未学完内容</span>
           </div>
 
           <div className="history-list">
@@ -167,10 +200,10 @@ function History() {
             <button
               className="load-more-btn"
               onClick={handleLoadMore}
-              disabled={loading}
+              disabled={loadingMore}
               style={{ width: '100%', marginTop: 12 }}
             >
-              {loading ? '加载中...' : '加载更多'}
+              {loadingMore ? '加载中...' : '加载更多'}
             </button>
           )}
 
