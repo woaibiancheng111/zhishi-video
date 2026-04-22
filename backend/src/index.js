@@ -7,6 +7,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const { initDb } = require('./models');
+const { ensureUploadDir } = require('./middleware/upload');
 
 // 导入路由
 const authRoutes = require('./routes/auth');
@@ -18,6 +19,10 @@ const userRoutes = require('./routes/users');
 const commentRoutes = require('./routes/comments');
 const noteRoutes = require('./routes/notes');
 const aiRoutes = require('./routes/ai');
+const creatorRoutes = require('./routes/creator');
+const subtitleRoutes = require('./routes/subtitles');
+const knowledgePointsRoutes = require('./routes/knowledge-points');
+const reminderRoutes = require('./routes/reminders');
 
 
 
@@ -65,11 +70,14 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 静态文件服务：上传的文件
+app.use('/uploads', express.static(config.upload.uploadDir));
+
 // 注册路由
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/videos', videoRoutes);
 app.use('/api/v1/roadmaps', require('./routes/roadmaps'));
-app.use('/api/v1/creator', require('./routes/creator'));
+app.use('/api/v1/creator', creatorRoutes);
 app.use('/api/v1/feed', feedRoutes);
 app.use('/api/v1/search', searchRoutes);
 app.use('/api/v1/favorites', favoriteRoutes);
@@ -77,6 +85,9 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/comments', commentRoutes);
 app.use('/api/v1/notes', noteRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/subtitles', subtitleRoutes);
+app.use('/api/v1/knowledge-points', knowledgePointsRoutes);
+app.use('/api/v1/reminders', reminderRoutes);
 
 // 404 处理
 app.use((req, res) => {
@@ -98,6 +109,10 @@ app.use((err, req, res, next) => {
 // 启动服务
 async function start() {
   try {
+    // 确保上传目录存在
+    ensureUploadDir(config.upload.uploadDir);
+    console.log('上传目录已准备就绪:', config.upload.uploadDir);
+
     // 初始化数据库连接
     const db = await initDb();
     console.log('PostgreSQL 数据库连接成功');

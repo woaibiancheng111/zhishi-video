@@ -212,3 +212,200 @@ export const checkIn = () =>
 /** 获取用户成就与统计 */
 export const getAchievements = () =>
   api.get('/users/achievements');
+
+// ============================================
+// 创作者中心 API
+// ============================================
+
+/** 获取创作者统计 */
+export const getCreatorStats = () =>
+  api.get('/creator/stats');
+
+/** 获取创作者视频列表 */
+export const getCreatorVideos = (params) =>
+  api.get('/creator/videos', { params });
+
+/** 获取创作者单个视频详情 */
+export const getCreatorVideo = (id) =>
+  api.get(`/creator/videos/${id}`);
+
+/** 上传视频文件 */
+export const uploadVideo = (file, onProgress) => {
+  const formData = new FormData();
+  formData.append('video', file);
+  return api.post('/creator/upload/video', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (progressEvent) => {
+      if (onProgress && progressEvent.total) {
+        onProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+      }
+    }
+  });
+};
+
+/** 上传封面图片 */
+export const uploadCover = (file, onProgress) => {
+  const formData = new FormData();
+  formData.append('cover', file);
+  return api.post('/creator/upload/cover', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (progressEvent) => {
+      if (onProgress && progressEvent.total) {
+        onProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+      }
+    }
+  });
+};
+
+/** 创建视频 */
+export const createVideo = (data) =>
+  api.post('/creator/videos', data);
+
+/** 更新视频 */
+export const updateVideo = (id, data) =>
+  api.put(`/creator/videos/${id}`, data);
+
+/** 发布视频 */
+export const publishVideo = (id) =>
+  api.post(`/creator/videos/${id}/publish`);
+
+/** 删除视频 */
+export const deleteVideo = (id) =>
+  api.delete(`/creator/videos/${id}`);
+
+// ============================================
+// 字幕 API
+// ============================================
+
+/** 获取视频的字幕列表 */
+export const getVideoSubtitles = (videoId) =>
+  api.get(`/subtitles/video/${videoId}`);
+
+/** 获取字幕详情 */
+export const getSubtitle = (id) =>
+  api.get(`/subtitles/${id}`);
+
+/** 上传字幕文件 */
+export const uploadSubtitle = (file) => {
+  const formData = new FormData();
+  formData.append('subtitle', file);
+  return api.post('/subtitles/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+/** 创建字幕 */
+export const createSubtitle = (data) =>
+  api.post('/subtitles', data);
+
+/** 更新字幕 */
+export const updateSubtitle = (id, data) =>
+  api.put(`/subtitles/${id}`, data);
+
+/** 删除字幕 */
+export const deleteSubtitle = (id) =>
+  api.delete(`/subtitles/${id}`);
+
+/** 生成自动字幕 */
+export const generateSubtitle = (videoId, language = 'zh-CN') =>
+  api.post('/subtitles/generate', { video_id: videoId, language });
+
+// ============================================
+// 知识点标记 API
+// ============================================
+
+/** 获取视频的知识点列表 */
+export const getVideoKnowledgePoints = (videoId) =>
+  api.get(`/knowledge-points/video/${videoId}`);
+
+/** 获取知识点详情 */
+export const getKnowledgePoint = (id) =>
+  api.get(`/knowledge-points/${id}`);
+
+/** 创建知识点 */
+export const createKnowledgePoint = (data) =>
+  api.post('/knowledge-points', data);
+
+/** 批量创建知识点 */
+export const createKnowledgePointsBatch = (videoId, points) =>
+  api.post('/knowledge-points/batch', { video_id: videoId, points });
+
+/** 更新知识点 */
+export const updateKnowledgePoint = (id, data) =>
+  api.put(`/knowledge-points/${id}`, data);
+
+/** 删除知识点 */
+export const deleteKnowledgePoint = (id) =>
+  api.delete(`/knowledge-points/${id}`);
+
+/** 批量删除知识点 */
+export const deleteKnowledgePointsBatch = (ids) =>
+  api.post('/knowledge-points/batch-delete', { ids });
+
+/** 生成知识点（AI模拟） */
+export const generateKnowledgePoints = (videoId) =>
+  api.post('/knowledge-points/generate', { video_id: videoId });
+
+// ============================================
+// 复习提醒 API
+// ============================================
+
+/** 获取复习提醒列表 */
+export const getReminders = (params) =>
+  api.get('/reminders', { params });
+
+/** 获取今日提醒 */
+export const getTodayReminders = () =>
+  api.get('/reminders/today');
+
+/** 创建复习提醒 */
+export const createReminder = (data) =>
+  api.post('/reminders', data);
+
+/** 创建艾宾浩斯复习系列 */
+export const createEbbinghausReminder = (videoId, knowledgePointId, startTime) =>
+  api.post('/reminders/ebbinghaus', {
+    video_id: videoId,
+    knowledge_point_id: knowledgePointId,
+    start_time: startTime
+  });
+
+/** 更新复习提醒 */
+export const updateReminder = (id, data) =>
+  api.put(`/reminders/${id}`, data);
+
+/** 标记提醒为已完成 */
+export const completeReminder = (id) =>
+  api.post(`/reminders/${id}/complete`);
+
+/** 取消复习提醒 */
+export const cancelReminder = (id) =>
+  api.post(`/reminders/${id}/cancel`);
+
+/** 删除复习提醒 */
+export const deleteReminder = (id) =>
+  api.delete(`/reminders/${id}`);
+
+/** 获取艾宾浩斯复习间隔配置 */
+export const getReminderIntervals = () =>
+  api.get('/reminders/config/intervals');
+
+// ============================================
+// 笔记导出 API
+// ============================================
+
+/** 导出笔记为Markdown */
+export const exportNotesAsMarkdown = (noteIds) =>
+  api.post('/notes/export/markdown', { note_ids: noteIds }, { responseType: 'blob' });
+
+/** 导出笔记为JSON */
+export const exportNotesAsJson = (noteIds) =>
+  api.post('/notes/export/json', { note_ids: noteIds });
+
+/** 导出笔记为TXT */
+export const exportNotesAsTxt = (noteIds) =>
+  api.post('/notes/export/txt', { note_ids: noteIds }, { responseType: 'blob' });
+
+/** 导出单条笔记 */
+export const exportSingleNote = (id, format = 'markdown') =>
+  api.get(`/notes/${id}/export/${format}`, { responseType: 'blob' });
