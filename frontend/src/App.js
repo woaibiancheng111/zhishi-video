@@ -13,6 +13,7 @@ import History from './pages/History';
 import Roadmaps from './pages/Roadmaps';
 import RoadmapDetail from './pages/RoadmapDetail';
 import CreatorStudio from './pages/CreatorStudio';
+import Reminders from './pages/Reminders';
 import Settings from './pages/Settings';
 import Feedback from './pages/Feedback';
 import About from './pages/About';
@@ -68,6 +69,8 @@ function App() {
           <Route path="/roadmaps" element={<Roadmaps />} />
           <Route path="/roadmaps/:id" element={<RoadmapDetail />} />
           <Route path="/creator" element={<ProtectedRoute><CreatorStudio /></ProtectedRoute>} />
+          <Route path="/creator/:videoId" element={<ProtectedRoute><CreatorStudio /></ProtectedRoute>} />
+          <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/about" element={<About />} />

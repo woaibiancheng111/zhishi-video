@@ -212,3 +212,144 @@ export const checkIn = () =>
 /** 获取用户成就与统计 */
 export const getAchievements = () =>
   api.get('/users/achievements');
+
+// ============================================
+// 创作者相关 API
+// ============================================
+
+/** 获取创作者统计 */
+export const getCreatorStats = () =>
+  api.get('/creator/stats');
+
+/** 获取创作者视频列表 */
+export const getCreatorVideos = (params) =>
+  api.get('/creator/videos', { params });
+
+/** 上传视频文件 */
+export const uploadVideo = (file, onProgress) => {
+  const formData = new FormData();
+  formData.append('video', file);
+  
+  const token = localStorage.getItem('zhishi_token');
+  const config = {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...(token && { Authorization: `Bearer ${token}` })
+    },
+    onUploadProgress: (progressEvent) => {
+      if (onProgress) {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        onProgress(percentCompleted);
+      }
+    }
+  };
+  
+  return api.post('/creator/videos/upload', formData, config);
+};
+
+/** 上传封面图 */
+export const uploadCover = (file) => {
+  const formData = new FormData();
+  formData.append('cover', file);
+  
+  const token = localStorage.getItem('zhishi_token');
+  const config = {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...(token && { Authorization: `Bearer ${token}` })
+    }
+  };
+  
+  return api.post('/creator/videos/cover', formData, config);
+};
+
+/** 创建/更新视频信息 */
+export const saveVideo = (data) =>
+  api.post('/creator/videos', data);
+
+/** 删除视频 */
+export const deleteVideo = (id) =>
+  api.delete(`/creator/videos/${id}`);
+
+/** 发布视频 */
+export const publishVideo = (id) =>
+  api.post(`/creator/videos/${id}/publish`);
+
+/** 获取视频处理进度 */
+export const getVideoProgress = (id) =>
+  api.get(`/creator/videos/${id}/progress`);
+
+/** 获取视频字幕列表 */
+export const getVideoSubtitles = (videoId) =>
+  api.get(`/creator/videos/${videoId}/subtitles`);
+
+/** 生成自动字幕 */
+export const generateSubtitles = (videoId, language = 'zh-CN') =>
+  api.post(`/creator/videos/${videoId}/subtitles/generate`, { language });
+
+/** 更新字幕 */
+export const updateSubtitles = (videoId, language, content) =>
+  api.put(`/creator/videos/${videoId}/subtitles/${language}`, { content });
+
+/** 获取视频知识点 */
+export const getKnowledgePoints = (videoId) =>
+  api.get(`/creator/videos/${videoId}/knowledge-points`);
+
+/** 创建/更新知识点 */
+export const saveKnowledgePoint = (videoId, data) =>
+  api.post(`/creator/videos/${videoId}/knowledge-points`, data);
+
+/** 删除知识点 */
+export const deleteKnowledgePoint = (videoId, pointId) =>
+  api.delete(`/creator/videos/${videoId}/knowledge-points/${pointId}`);
+
+// ============================================
+// 笔记导出 API
+// ============================================
+
+/** 导出笔记 */
+export const exportNotes = (format = 'json', videoId) =>
+  api.get('/notes/export', { 
+    params: { format, video_id: videoId },
+    responseType: format === 'json' ? 'json' : 'blob'
+  });
+
+// ============================================
+// 复习提醒 API
+// ============================================
+
+/** 获取复习提醒列表 */
+export const getReminders = (params) =>
+  api.get('/reminders', { params });
+
+/** 创建复习提醒 */
+export const createReminder = (data) =>
+  api.post('/reminders', data);
+
+/** 更新复习提醒 */
+export const updateReminder = (id, data) =>
+  api.put(`/reminders/${id}`, data);
+
+/** 删除复习提醒 */
+export const deleteReminder = (id) =>
+  api.delete(`/reminders/${id}`);
+
+/** 获取复习计划列表 */
+export const getReviewSchedules = (params) =>
+  api.get('/reminders/schedules', { params });
+
+/** 创建复习计划 */
+export const createReviewSchedule = (targetType, targetId) =>
+  api.post('/reminders/schedules', { target_type: targetType, target_id: targetId });
+
+/** 完成一次复习 */
+export const completeReview = (scheduleId, quality = 4) =>
+  api.post(`/reminders/schedules/${scheduleId}/review`, { quality });
+
+/** 取消复习计划 */
+export const cancelReviewSchedule = (id) =>
+  api.delete(`/reminders/schedules/${id}`);
+
+/** 获取今日待复习 */
+export const getTodayReviews = () =>
+  api.get('/reminders/today');

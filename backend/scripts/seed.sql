@@ -59,9 +59,78 @@ CREATE TABLE videos (
     duration INTEGER DEFAULT 0,
     play_count INTEGER DEFAULT 0,
     like_count INTEGER DEFAULT 0,
-    status VARCHAR(20) DEFAULT 'published',
+    status VARCHAR(20) DEFAULT 'draft',
+    processing_status VARCHAR(20) DEFAULT 'pending',
+    processing_progress INTEGER DEFAULT 0,
+    original_file_name VARCHAR(255) DEFAULT '',
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================
+-- 自动字幕表
+-- ============================================
+CREATE TABLE subtitles (
+    id SERIAL PRIMARY KEY,
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    language VARCHAR(10) DEFAULT 'zh-CN',
+    content JSONB DEFAULT '[]',
+    is_auto_generated BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(video_id, language)
+);
+
+-- ============================================
+-- 知识点标记表
+-- ============================================
+CREATE TABLE knowledge_points (
+    id SERIAL PRIMARY KEY,
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    title VARCHAR(200) NOT NULL,
+    description TEXT DEFAULT '',
+    start_time_sec INTEGER DEFAULT 0,
+    end_time_sec INTEGER DEFAULT 0,
+    tags TEXT[] DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================
+-- 复习提醒表
+-- ============================================
+CREATE TABLE review_reminders (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    knowledge_point_id INTEGER REFERENCES knowledge_points(id) ON DELETE SET NULL,
+    note_id INTEGER REFERENCES notes(id) ON DELETE SET NULL,
+    reminder_type VARCHAR(20) DEFAULT 'video',
+    reminder_time TIMESTAMP NOT NULL,
+    is_sent BOOLEAN DEFAULT false,
+    is_completed BOOLEAN DEFAULT false,
+    repeat_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================
+-- 复习计划表
+-- ============================================
+CREATE TABLE review_schedules (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    target_type VARCHAR(20) NOT NULL,
+    target_id INTEGER NOT NULL,
+    schedule_type VARCHAR(20) DEFAULT 'spaced_repetition',
+    next_review_at TIMESTAMP NOT NULL,
+    interval_days INTEGER DEFAULT 1,
+    ease_factor NUMERIC(3, 2) DEFAULT 2.50,
+    repetitions INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, target_type, target_id)
 );
 
 -- ============================================
@@ -143,6 +212,7 @@ CREATE TABLE notes (
 CREATE INDEX idx_videos_category ON videos(category_id);
 CREATE INDEX idx_videos_status ON videos(status);
 CREATE INDEX idx_videos_created ON videos(created_at DESC);
+CREATE INDEX idx_videos_creator ON videos(creator_id);
 CREATE INDEX idx_user_behaviors_user ON user_behaviors(user_id);
 CREATE INDEX idx_user_behaviors_video ON user_behaviors(video_id);
 CREATE INDEX idx_favorites_user ON favorites(user_id);
@@ -151,6 +221,12 @@ CREATE INDEX idx_comments_video ON comments(video_id);
 CREATE INDEX idx_comments_user ON comments(user_id);
 CREATE INDEX idx_notes_user ON notes(user_id);
 CREATE INDEX idx_notes_video ON notes(user_id, video_id);
+CREATE INDEX idx_subtitles_video ON subtitles(video_id);
+CREATE INDEX idx_knowledge_points_video ON knowledge_points(video_id);
+CREATE INDEX idx_review_reminders_user ON review_reminders(user_id);
+CREATE INDEX idx_review_reminders_time ON review_reminders(reminder_time);
+CREATE INDEX idx_review_schedules_user ON review_schedules(user_id);
+CREATE INDEX idx_review_schedules_next ON review_schedules(next_review_at);
 
 -- ============================================
 -- 插入分类数据
