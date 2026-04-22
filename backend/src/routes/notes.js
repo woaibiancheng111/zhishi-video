@@ -203,4 +203,140 @@ router.delete('/:id', notesWriteLimiter, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/v1/notes/export
+ * 导出笔记（支持多种格式：json, markdown, txt）
+ */
+router.get('/export', async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { format = 'json', video_id } = req.query;
+    const db = getDb();
+
+    let whereClause = 'WHERE n.user_id = $1';
+    const params = [userId];
+    let paramIndex = 2;
+
+    if (video_id) {
+      whereClause += ` AND n.video_id = $${paramIndex}`;
+      params.push(video_id);
+      paramIndex++;
+    }
+
+    const notes = await db.any(
+      `SELECT n.id, n.content, n.timestamp_sec, n.created_at, n.updated_at,
+              v.id as video_id, v.title as video_title, v.cover_url
+       FROM notes n
+       JOIN videos v ON n.video_id = v.id
+       ${whereClause}
+       ORDER BY v.id, n.timestamp_sec`,
+      params
+    );
+
+    if (format === 'json') {
+      res.json({
+        success: true,
+        data: {
+          export_time: new Date().toISOString(),
+          total_notes: notes.length,
+          notes: notes
+        }
+      });
+    } else if (format === 'markdown') {
+      const markdown = generateMarkdown(notes);
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename=notes_${Date.now()}.md`);
+      res.send(markdown);
+    } else if (format === 'txt') {
+      const text = generateText(notes);
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename=notes_${Date.now()}.txt`);
+      res.send(text);
+    } else {
+      res.status(400).json({ success: false, message: '不支持的导出格式' });
+    }
+  } catch (error) {
+    console.error('[导出笔记错误]', error);
+    res.status(500).json({ success: false, message: '导出笔记失败' });
+  }
+});
+
+function formatTimestamp(sec) {
+  if (!sec) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function generateMarkdown(notes) {
+  if (notes.length === 0) {
+    return '# 我的学习笔记\n\n暂无笔记';
+  }
+
+  const grouped = {};
+  notes.forEach(note => {
+    if (!grouped[note.video_id]) {
+      grouped[note.video_id] = {
+        title: note.video_title,
+        notes: []
+      };
+    }
+    grouped[note.video_id].notes.push(note);
+  });
+
+  let markdown = '# 我的学习笔记\n\n';
+  markdown += `> 导出时间: ${new Date().toLocaleString('zh-CN')}\n\n`;
+  markdown += `> 共 ${notes.length} 条笔记，来自 ${Object.keys(grouped).length} 个视频\n\n`;
+  markdown += '---\n\n';
+
+  Object.values(grouped).forEach(group => {
+    markdown += `## ${group.title}\n\n`;
+    group.notes.forEach(note => {
+      const timeStr = note.timestamp_sec > 0 ? ` [${formatTimestamp(note.timestamp_sec)}]` : '';
+      markdown += `### 笔记${timeStr}\n\n`;
+      markdown += `${note.content}\n\n`;
+      markdown += `> 创建时间: ${new Date(note.created_at).toLocaleString('zh-CN')}\n\n`;
+      markdown += '---\n\n';
+    });
+  });
+
+  return markdown;
+}
+
+function generateText(notes) {
+  if (notes.length === 0) {
+    return '我的学习笔记\n\n暂无笔记';
+  }
+
+  const grouped = {};
+  notes.forEach(note => {
+    if (!grouped[note.video_id]) {
+      grouped[note.video_id] = {
+        title: note.video_title,
+        notes: []
+      };
+    }
+    grouped[note.video_id].notes.push(note);
+  });
+
+  let text = '我的学习笔记\n';
+  text += '================\n\n';
+  text += `导出时间: ${new Date().toLocaleString('zh-CN')}\n`;
+  text += `共 ${notes.length} 条笔记，来自 ${Object.keys(grouped).length} 个视频\n\n`;
+  text += '----------------------------------------\n\n';
+
+  Object.values(grouped).forEach((group, groupIndex) => {
+    text += `【视频 ${groupIndex + 1}】${group.title}\n\n`;
+    group.notes.forEach((note, noteIndex) => {
+      const timeStr = note.timestamp_sec > 0 ? ` [时间: ${formatTimestamp(note.timestamp_sec)}]` : '';
+      text += `  笔记 ${noteIndex + 1}${timeStr}:\n`;
+      text += `    ${note.content}\n`;
+      text += `    创建时间: ${new Date(note.created_at).toLocaleString('zh-CN')}\n\n`;
+    });
+    text += '----------------------------------------\n\n';
+  });
+
+  return text;
+}
+
 module.exports = router;

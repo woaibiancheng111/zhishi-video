@@ -1,10 +1,10 @@
 /**
  * Notes - 学习笔记页
- * 展示用户所有的学习笔记，按视频分组
+ * 展示用户所有的学习笔记，按视频分组，支持导出
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getNotes, deleteNote } from '../services/api';
+import { getNotes, deleteNote, exportNotes } from '../services/api';
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -32,6 +32,7 @@ function Notes() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
+  const [exportFormat, setExportFormat] = useState('markdown');
 
   useEffect(() => {
     fetchNotes(1);
@@ -85,6 +86,36 @@ function Notes() {
     fetchNotes(nextPage);
   };
 
+  const handleExport = async () => {
+    try {
+      const res = await exportNotes(exportFormat);
+      
+      if (exportFormat === 'json') {
+        const dataStr = JSON.stringify(res.data, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        downloadFile(blob, `notes_${Date.now()}.json`);
+      } else {
+        downloadFile(res, `notes_${Date.now()}.${exportFormat === 'markdown' ? 'md' : 'txt'}`);
+      }
+      
+      alert('导出成功！');
+    } catch (err) {
+      console.error('导出笔记失败:', err);
+      alert('导出失败: ' + (err.message || '未知错误'));
+    }
+  };
+
+  const downloadFile = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="page">
       <div className="page-header">
@@ -94,6 +125,42 @@ function Notes() {
           <p>把视频里的关键片段、灵感和方法论沉淀成你自己的学习资产。</p>
         </div>
       </div>
+
+      {notes.length > 0 && (
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px', 
+          marginBottom: '16px',
+          padding: '12px 16px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px'
+        }}>
+          <span style={{ fontSize: '14px', color: '#666' }}>导出笔记:</span>
+          <select
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value)}
+            style={{
+              padding: '6px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              fontSize: '14px',
+              backgroundColor: 'white'
+            }}
+          >
+            <option value="markdown">Markdown (.md)</option>
+            <option value="txt">纯文本 (.txt)</option>
+            <option value="json">JSON (.json)</option>
+          </select>
+          <button
+            onClick={handleExport}
+            className="btn btn-primary"
+            style={{ fontSize: '14px', padding: '6px 16px' }}
+          >
+            📥 导出
+          </button>
+        </div>
+      )}
 
       {loading && notes.length === 0 ? (
         <div className="loading">

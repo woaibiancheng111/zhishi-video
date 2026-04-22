@@ -18,6 +18,7 @@ const userRoutes = require('./routes/users');
 const commentRoutes = require('./routes/comments');
 const noteRoutes = require('./routes/notes');
 const aiRoutes = require('./routes/ai');
+const reminderRoutes = require('./routes/reminders');
 
 
 
@@ -28,6 +29,10 @@ const PORT = config.port;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// 静态文件服务 - 上传的文件
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // 全局API限流（每IP每15分钟最多300次请求）
 const apiLimiter = rateLimit({
@@ -77,6 +82,7 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/comments', commentRoutes);
 app.use('/api/v1/notes', noteRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/reminders', reminderRoutes);
 
 // 404 处理
 app.use((req, res) => {
