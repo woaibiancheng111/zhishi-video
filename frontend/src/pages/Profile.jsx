@@ -136,6 +136,14 @@ function Profile() {
           <span className="profile-menu-arrow">›</span>
         </div>
 
+        <div className="profile-menu-item" onClick={() => navigate('/reminders')}>
+          <div className="profile-menu-item-left">
+            <span className="profile-menu-icon">🔔</span>
+            <span className="profile-menu-text">复习提醒</span>
+          </div>
+          <span className="profile-menu-arrow">›</span>
+        </div>
+
         <div className="profile-menu-item" onClick={() => navigate('/history')}>
           <div className="profile-menu-item-left">
             <span className="profile-menu-icon">📚</span>
