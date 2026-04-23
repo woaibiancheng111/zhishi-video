@@ -9,6 +9,10 @@ DROP TABLE IF EXISTS user_statistics CASCADE;
 DROP TABLE IF EXISTS notes CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS knowledge_cards CASCADE;
+DROP TABLE IF EXISTS subtitle_items CASCADE;
+DROP TABLE IF EXISTS subtitles CASCADE;
+DROP TABLE IF EXISTS knowledge_points CASCADE;
+DROP TABLE IF EXISTS review_reminders CASCADE;
 DROP TABLE IF EXISTS user_behaviors CASCADE;
 DROP TABLE IF EXISTS favorites CASCADE;
 DROP TABLE IF EXISTS favorite_folders CASCADE;
@@ -391,3 +395,88 @@ INSERT INTO badges (name, description, icon_url, category, sort_order) VALUES
 INSERT INTO user_statistics (user_id, check_in_count, continuous_days, last_check_in_date, total_points, level) VALUES
 (1, 0, 0, NULL, 0, 1),
 (2, 0, 0, NULL, 0, 1);
+
+
+-- ============================================
+-- 字幕表
+-- ============================================
+CREATE TABLE subtitles (
+    id SERIAL PRIMARY KEY,
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    language VARCHAR(20) DEFAULT 'zh-CN',
+    language_name VARCHAR(50) DEFAULT '中文',
+    file_url VARCHAR(500) DEFAULT '',
+    source VARCHAR(20) DEFAULT 'manual',
+    status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================
+-- 字幕条目表
+-- ============================================
+CREATE TABLE subtitle_items (
+    id SERIAL PRIMARY KEY,
+    subtitle_id INTEGER REFERENCES subtitles(id) ON DELETE CASCADE,
+    start_time NUMERIC(10, 3) DEFAULT 0,
+    end_time NUMERIC(10, 3) DEFAULT 0,
+    text TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================
+-- 知识点标记表
+-- ============================================
+CREATE TABLE knowledge_points (
+    id SERIAL PRIMARY KEY,
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT DEFAULT '',
+    timestamp_sec INTEGER DEFAULT 0,
+    start_time_sec INTEGER DEFAULT 0,
+    end_time_sec INTEGER DEFAULT 0,
+    importance VARCHAR(20) DEFAULT 'normal',
+    tags TEXT[] DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================
+-- 复习提醒表
+-- ============================================
+CREATE TABLE review_reminders (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    knowledge_point_id INTEGER REFERENCES knowledge_points(id) ON DELETE SET NULL,
+    remind_at TIMESTAMP NOT NULL,
+    interval_minutes INTEGER DEFAULT 0,
+    interval_type VARCHAR(20) DEFAULT 'custom',
+    notes TEXT DEFAULT '',
+    status VARCHAR(20) DEFAULT 'pending',
+    is_series BOOLEAN DEFAULT FALSE,
+    series_order INTEGER DEFAULT 1,
+    completed_at TIMESTAMP,
+    cancelled_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================
+-- 创建索引
+-- ============================================
+CREATE INDEX idx_subtitles_video ON subtitles(video_id);
+CREATE INDEX idx_subtitles_status ON subtitles(status);
+CREATE INDEX idx_subtitle_items_subtitle ON subtitle_items(subtitle_id);
+CREATE INDEX idx_subtitle_items_time ON subtitle_items(start_time);
+
+CREATE INDEX idx_knowledge_points_video ON knowledge_points(video_id);
+CREATE INDEX idx_knowledge_points_timestamp ON knowledge_points(timestamp_sec);
+CREATE INDEX idx_knowledge_points_importance ON knowledge_points(importance);
+
+CREATE INDEX idx_review_reminders_user ON review_reminders(user_id);
+CREATE INDEX idx_review_reminders_video ON review_reminders(video_id);
+CREATE INDEX idx_review_reminders_status ON review_reminders(status);
+CREATE INDEX idx_review_reminders_remind_at ON review_reminders(remind_at);

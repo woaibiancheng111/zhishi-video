@@ -9,6 +9,7 @@ import Player from './pages/Player';
 import Favorites from './pages/Favorites';
 import Profile from './pages/Profile';
 import Notes from './pages/Notes';
+import Reminders from './pages/Reminders';
 import History from './pages/History';
 import Roadmaps from './pages/Roadmaps';
 import RoadmapDetail from './pages/RoadmapDetail';
@@ -64,6 +65,7 @@ function App() {
           <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
+          <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/roadmaps" element={<Roadmaps />} />
           <Route path="/roadmaps/:id" element={<RoadmapDetail />} />
