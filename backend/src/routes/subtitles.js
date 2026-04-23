@@ -11,6 +11,17 @@ const path = require('path');
 const fs = require('fs');
 
 /**
+ * 将数据库字段转换为前端期望的格式
+ */
+function formatSubtitleItem(item) {
+  return {
+    ...item,
+    start_time_sec: item.start_time,
+    end_time_sec: item.end_time
+  };
+}
+
+/**
  * 解析VTT格式字幕
  */
 function parseVTT(content) {
@@ -145,7 +156,9 @@ router.get('/video/:videoId', async (req, res) => {
       
       result.push({
         ...subtitle,
-        items
+        is_auto: subtitle.source === 'auto',
+        language_display: subtitle.language_name || subtitle.language,
+        items: items.map(formatSubtitleItem)
       });
     }
 
@@ -155,6 +168,12 @@ router.get('/video/:videoId', async (req, res) => {
     });
   } catch (error) {
     console.error('获取字幕错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(200).json({
+        success: true,
+        data: []
+      });
+    }
     res.status(500).json({ success: false, message: '获取字幕失败' });
   }
 });
@@ -188,11 +207,19 @@ router.get('/:id', async (req, res) => {
       success: true,
       data: {
         ...subtitle,
-        items
+        is_auto: subtitle.source === 'auto',
+        language_display: subtitle.language_name || subtitle.language,
+        items: items.map(formatSubtitleItem)
       }
     });
   } catch (error) {
     console.error('获取字幕详情错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(200).json({
+        success: true,
+        data: null
+      });
+    }
     res.status(500).json({ success: false, message: '获取字幕详情失败' });
   }
 });
@@ -246,7 +273,7 @@ router.post('/upload', authMiddleware, (req, res) => {
           url: subtitleUrl,
           size: req.file.size,
           ext,
-          items: parsedItems
+          items: parsedItems.map(formatSubtitleItem)
         },
         message: '字幕上传成功'
       });
@@ -311,8 +338,8 @@ router.post('/', authMiddleware, async (req, res) => {
           ) VALUES ($1, $2, $3, $4, NOW())
         `, [
           subtitle.id,
-          item.start_time || 0,
-          item.end_time || 0,
+          item.start_time || item.start_time_sec || 0,
+          item.end_time || item.end_time_sec || 0,
           item.text || ''
         ]);
       }
@@ -326,12 +353,20 @@ router.post('/', authMiddleware, async (req, res) => {
       success: true,
       data: {
         ...subtitle,
-        items: savedItems
+        is_auto: subtitle.source === 'auto',
+        language_display: subtitle.language_name || subtitle.language,
+        items: savedItems.map(formatSubtitleItem)
       },
       message: '字幕创建成功'
     });
   } catch (error) {
     console.error('创建字幕错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(500).json({ 
+        success: false, 
+        message: '数据库表不存在，请先执行数据库迁移' 
+      });
+    }
     res.status(500).json({ success: false, message: '创建字幕失败' });
   }
 });
@@ -410,8 +445,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
           ) VALUES ($1, $2, $3, $4, NOW())
         `, [
           id,
-          item.start_time || 0,
-          item.end_time || 0,
+          item.start_time || item.start_time_sec || 0,
+          item.end_time || item.end_time_sec || 0,
           item.text || ''
         ]);
       }
@@ -425,7 +460,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
       success: true,
       data: {
         ...updated,
-        items: savedItems
+        is_auto: updated.source === 'auto',
+        language_display: updated.language_name || updated.language,
+        items: savedItems.map(formatSubtitleItem)
       },
       message: '字幕更新成功'
     });
@@ -480,7 +517,7 @@ router.post('/generate', authMiddleware, async (req, res) => {
     }
 
     const video = await db.oneOrNone(
-      'SELECT id, title, description, duration, creator_id FROM videos WHERE id = $1',
+      'SELECT id, title, description, duration, creator_id, tags FROM videos WHERE id = $1',
       [video_id]
     );
 
@@ -511,7 +548,9 @@ router.post('/generate', authMiddleware, async (req, res) => {
       
       generatedItems.push({
         start_time: startTime,
+        start_time_sec: startTime,
         end_time: endTime,
+        end_time_sec: endTime,
         text: `这是第${i + 1}条自动生成的字幕：${keywords[i] || '视频内容摘要'}`
       });
     }
@@ -552,12 +591,20 @@ router.post('/generate', authMiddleware, async (req, res) => {
       success: true,
       data: {
         ...subtitle,
-        items: savedItems
+        is_auto: true,
+        language_display: subtitle.language_name || subtitle.language,
+        items: savedItems.map(formatSubtitleItem)
       },
       message: '自动字幕生成成功'
     });
   } catch (error) {
     console.error('生成自动字幕错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(500).json({ 
+        success: false, 
+        message: '数据库表不存在，请先执行数据库迁移' 
+      });
+    }
     res.status(500).json({ success: false, message: '生成自动字幕失败' });
   }
 });

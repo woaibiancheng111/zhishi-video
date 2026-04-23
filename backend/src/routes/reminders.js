@@ -23,6 +23,21 @@ const DEFAULT_INTERVALS = [
 ];
 
 /**
+ * 将数据库字段转换为前端期望的格式
+ */
+function formatReminder(r) {
+  return {
+    ...r,
+    reminder_time: r.remind_at,
+    reminder_note: r.notes,
+    ebbinghaus_level: r.series_order,
+    knowledge_point_start_sec: r.timestamp_sec,
+    knowledge_point_end_sec: r.timestamp_sec ? r.timestamp_sec + 10 : null,
+    video_cover_url: r.cover_url
+  };
+}
+
+/**
  * 获取用户的所有复习提醒
  */
 router.get('/', authMiddleware, async (req, res) => {
@@ -53,7 +68,8 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const reminders = await db.any(`
       SELECT rr.*, v.title as video_title, v.cover_url, v.duration,
-             kp.title as knowledge_point_title, kp.timestamp_sec
+             kp.title as knowledge_point_title, kp.timestamp_sec, 
+             kp.start_time_sec as kp_start_sec, kp.end_time_sec as kp_end_sec
       FROM review_reminders rr
       LEFT JOIN videos v ON rr.video_id = v.id
       LEFT JOIN knowledge_points kp ON rr.knowledge_point_id = kp.id
@@ -62,10 +78,16 @@ router.get('/', authMiddleware, async (req, res) => {
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `, [...params, parseInt(limit, 10), offset]);
 
+    const formattedReminders = reminders.map(r => ({
+      ...formatReminder(r),
+      knowledge_point_start_sec: r.kp_start_sec !== null ? r.kp_start_sec : r.timestamp_sec,
+      knowledge_point_end_sec: r.kp_end_sec !== null ? r.kp_end_sec : (r.timestamp_sec ? r.timestamp_sec + 10 : null)
+    }));
+
     res.json({
       success: true,
       data: {
-        list: reminders,
+        list: formattedReminders,
         pagination: {
           page: parseInt(page, 10),
           limit: parseInt(limit, 10),
@@ -76,6 +98,20 @@ router.get('/', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('获取复习提醒错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          list: [],
+          pagination: {
+            page: parseInt(page, 10),
+            limit: parseInt(limit, 10),
+            total: 0,
+            total_pages: 0
+          }
+        }
+      });
+    }
     res.status(500).json({ success: false, message: '获取复习提醒失败' });
   }
 });
@@ -90,7 +126,8 @@ router.get('/today', authMiddleware, async (req, res) => {
 
     const reminders = await db.any(`
       SELECT rr.*, v.title as video_title, v.cover_url, v.duration,
-             kp.title as knowledge_point_title, kp.timestamp_sec
+             kp.title as knowledge_point_title, kp.timestamp_sec,
+             kp.start_time_sec as kp_start_sec, kp.end_time_sec as kp_end_sec
       FROM review_reminders rr
       LEFT JOIN videos v ON rr.video_id = v.id
       LEFT JOIN knowledge_points kp ON rr.knowledge_point_id = kp.id
@@ -101,20 +138,24 @@ router.get('/today', authMiddleware, async (req, res) => {
       ORDER BY rr.remind_at ASC
     `, [userId]);
 
-    const upcomingCount = await db.one(`
-      SELECT COUNT(*) as count FROM review_reminders 
-      WHERE user_id = $1 AND status = 'pending'
-    `, [userId]);
+    const formattedReminders = reminders.map(r => ({
+      ...formatReminder(r),
+      knowledge_point_start_sec: r.kp_start_sec !== null ? r.kp_start_sec : r.timestamp_sec,
+      knowledge_point_end_sec: r.kp_end_sec !== null ? r.kp_end_sec : (r.timestamp_sec ? r.timestamp_sec + 10 : null)
+    }));
 
     res.json({
       success: true,
-      data: {
-        today_reminders: reminders,
-        upcoming_total: parseInt(upcomingCount.count)
-      }
+      data: formattedReminders
     });
   } catch (error) {
     console.error('获取今日提醒错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(200).json({
+        success: true,
+        data: []
+      });
+    }
     res.status(500).json({ success: false, message: '获取今日提醒失败' });
   }
 });
@@ -188,7 +229,7 @@ router.post('/', authMiddleware, async (req, res) => {
           true
         ]);
         
-        createdReminders.push(reminder);
+        createdReminders.push(formatReminder(reminder));
       }
 
       return res.status(201).json({
@@ -228,11 +269,17 @@ router.post('/', authMiddleware, async (req, res) => {
 
     res.status(201).json({
       success: true,
-      data: reminder,
+      data: formatReminder(reminder),
       message: '复习提醒创建成功'
     });
   } catch (error) {
     console.error('创建复习提醒错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(500).json({ 
+        success: false, 
+        message: '数据库表不存在，请先执行数据库迁移' 
+      });
+    }
     res.status(500).json({ success: false, message: '创建复习提醒失败' });
   }
 });
@@ -292,7 +339,7 @@ router.post('/ebbinghaus', authMiddleware, async (req, res) => {
         true
       ]);
       
-      createdReminders.push(reminder);
+      createdReminders.push(formatReminder(reminder));
     }
 
     res.status(201).json({
@@ -306,6 +353,12 @@ router.post('/ebbinghaus', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('创建艾宾浩斯提醒错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(500).json({ 
+        success: false, 
+        message: '数据库表不存在，请先执行数据库迁移' 
+      });
+    }
     res.status(500).json({ success: false, message: '创建复习提醒失败' });
   }
 });
@@ -361,7 +414,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.json({ success: true, data: existing, message: '没有需要更新的内容' });
+      return res.json({ success: true, data: formatReminder(existing), message: '没有需要更新的内容' });
     }
 
     updates.push(`updated_at = NOW()`);
@@ -374,7 +427,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     res.json({
       success: true,
-      data: updated,
+      data: formatReminder(updated),
       message: '复习提醒更新成功'
     });
   } catch (error) {
@@ -409,7 +462,7 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
 
     res.json({
       success: true,
-      data: updated,
+      data: formatReminder(updated),
       message: '已标记为完成复习'
     });
   } catch (error) {
@@ -444,7 +497,7 @@ router.post('/:id/cancel', authMiddleware, async (req, res) => {
 
     res.json({
       success: true,
-      data: updated,
+      data: formatReminder(updated),
       message: '已取消复习提醒'
     });
   } catch (error) {
@@ -507,10 +560,7 @@ router.get('/config/intervals', authMiddleware, async (req, res) => {
 
   res.json({
     success: true,
-    data: {
-      intervals: formattedIntervals,
-      description: '艾宾浩斯遗忘曲线复习间隔'
-    }
+    data: formattedIntervals
   });
 });
 

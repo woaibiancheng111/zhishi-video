@@ -435,6 +435,8 @@ CREATE TABLE knowledge_points (
     title VARCHAR(200) NOT NULL,
     description TEXT DEFAULT '',
     timestamp_sec INTEGER DEFAULT 0,
+    start_time_sec INTEGER DEFAULT 0,
+    end_time_sec INTEGER DEFAULT 0,
     importance VARCHAR(20) DEFAULT 'normal',
     tags TEXT[] DEFAULT '{}',
     created_at TIMESTAMP DEFAULT NOW(),

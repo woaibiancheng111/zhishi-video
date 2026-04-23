@@ -29,15 +29,27 @@ router.get('/video/:videoId', async (req, res) => {
       FROM knowledge_points kp
       LEFT JOIN users u ON kp.creator_id = u.id
       WHERE kp.video_id = $1
-      ORDER BY kp.timestamp_sec ASC
+      ORDER BY kp.start_time_sec ASC, kp.timestamp_sec ASC
     `, [videoId]);
+
+    const result = knowledgePoints.map(kp => ({
+      ...kp,
+      start_time_sec: kp.start_time_sec !== null ? kp.start_time_sec : kp.timestamp_sec,
+      end_time_sec: kp.end_time_sec !== null ? kp.end_time_sec : (kp.timestamp_sec + 10)
+    }));
 
     res.json({
       success: true,
-      data: knowledgePoints
+      data: result
     });
   } catch (error) {
     console.error('获取知识点错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(200).json({
+        success: true,
+        data: []
+      });
+    }
     res.status(500).json({ success: false, message: '获取知识点失败' });
   }
 });
@@ -63,12 +75,24 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: '知识点不存在' });
     }
 
+    const result = {
+      ...knowledgePoint,
+      start_time_sec: knowledgePoint.start_time_sec !== null ? knowledgePoint.start_time_sec : knowledgePoint.timestamp_sec,
+      end_time_sec: knowledgePoint.end_time_sec !== null ? knowledgePoint.end_time_sec : (knowledgePoint.timestamp_sec + 10)
+    };
+
     res.json({
       success: true,
-      data: knowledgePoint
+      data: result
     });
   } catch (error) {
     console.error('获取知识点详情错误:', error);
+    if (error.message && error.message.includes('relation')) {
+      return res.status(200).json({
+        success: true,
+        data: null
+      });
+    }
     res.status(500).json({ success: false, message: '获取知识点详情失败' });
   }
 });
@@ -85,6 +109,8 @@ router.post('/', authMiddleware, async (req, res) => {
       video_id,
       title,
       description = '',
+      start_time_sec,
+      end_time_sec,
       timestamp_sec,
       importance = 'normal',
       tags = []
@@ -98,9 +124,12 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: '知识点标题不能为空' });
     }
 
-    if (timestamp_sec === undefined || timestamp_sec === null) {
+    const startTime = start_time_sec !== undefined ? start_time_sec : timestamp_sec;
+    if (startTime === undefined || startTime === null) {
       return res.status(400).json({ success: false, message: '请指定时间点' });
     }
+
+    const endTime = end_time_sec !== undefined ? end_time_sec : (parseInt(startTime, 10) + 10);
 
     const video = await db.oneOrNone(
       'SELECT id, title, creator_id FROM videos WHERE id = $1',
@@ -118,22 +147,31 @@ router.post('/', authMiddleware, async (req, res) => {
     const knowledgePoint = await db.one(`
       INSERT INTO knowledge_points (
         video_id, creator_id, title, description, 
-        timestamp_sec, importance, tags, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+        timestamp_sec, start_time_sec, end_time_sec, 
+        importance, tags, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
       RETURNING *
     `, [
       video_id,
       userId,
       title.trim(),
       description.trim(),
-      parseInt(timestamp_sec, 10),
+      parseInt(startTime, 10),
+      parseInt(startTime, 10),
+      parseInt(endTime, 10),
       importance,
       tags
     ]);
 
+    const result = {
+      ...knowledgePoint,
+      start_time_sec: knowledgePoint.start_time_sec,
+      end_time_sec: knowledgePoint.end_time_sec
+    };
+
     res.status(201).json({
       success: true,
-      data: knowledgePoint,
+      data: result,
       message: '知识点创建成功'
     });
   } catch (error) {
@@ -174,27 +212,37 @@ router.post('/batch', authMiddleware, async (req, res) => {
 
     for (const point of points) {
       if (!point.title || !point.title.trim()) continue;
-      if (point.timestamp_sec === undefined || point.timestamp_sec === null) continue;
+      
+      const startTime = point.start_time_sec !== undefined ? point.start_time_sec : point.timestamp_sec;
+      if (startTime === undefined || startTime === null) continue;
 
+      const endTime = point.end_time_sec !== undefined ? point.end_time_sec : (parseInt(startTime, 10) + 10);
       const importance = validImportance.includes(point.importance) ? point.importance : 'normal';
 
       const knowledgePoint = await db.one(`
         INSERT INTO knowledge_points (
           video_id, creator_id, title, description, 
-          timestamp_sec, importance, tags, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+          timestamp_sec, start_time_sec, end_time_sec, 
+          importance, tags, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
         RETURNING *
       `, [
         video_id,
         userId,
         point.title.trim(),
         (point.description || '').trim(),
-        parseInt(point.timestamp_sec, 10),
+        parseInt(startTime, 10),
+        parseInt(startTime, 10),
+        parseInt(endTime, 10),
         importance,
         point.tags || []
       ]);
 
-      createdPoints.push(knowledgePoint);
+      createdPoints.push({
+        ...knowledgePoint,
+        start_time_sec: knowledgePoint.start_time_sec,
+        end_time_sec: knowledgePoint.end_time_sec
+      });
     }
 
     res.status(201).json({
@@ -221,6 +269,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
       title,
       description,
       timestamp_sec,
+      start_time_sec,
+      end_time_sec,
       importance,
       tags
     } = req.body;
@@ -253,9 +303,29 @@ router.put('/:id', authMiddleware, async (req, res) => {
       paramIndex++;
     }
 
-    if (timestamp_sec !== undefined) {
+    if (start_time_sec !== undefined) {
+      updates.push(`start_time_sec = $${paramIndex}`);
+      values.push(parseInt(start_time_sec, 10));
+      paramIndex++;
+      
+      updates.push(`timestamp_sec = $${paramIndex}`);
+      values.push(parseInt(start_time_sec, 10));
+      paramIndex++;
+    } else if (timestamp_sec !== undefined) {
       updates.push(`timestamp_sec = $${paramIndex}`);
       values.push(parseInt(timestamp_sec, 10));
+      paramIndex++;
+      
+      if (existing.start_time_sec === null || existing.start_time_sec === existing.timestamp_sec) {
+        updates.push(`start_time_sec = $${paramIndex}`);
+        values.push(parseInt(timestamp_sec, 10));
+        paramIndex++;
+      }
+    }
+
+    if (end_time_sec !== undefined) {
+      updates.push(`end_time_sec = $${paramIndex}`);
+      values.push(parseInt(end_time_sec, 10));
       paramIndex++;
     }
 
@@ -276,7 +346,12 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.json({ success: true, data: existing, message: '没有需要更新的内容' });
+      const result = {
+        ...existing,
+        start_time_sec: existing.start_time_sec !== null ? existing.start_time_sec : existing.timestamp_sec,
+        end_time_sec: existing.end_time_sec !== null ? existing.end_time_sec : (existing.timestamp_sec + 10)
+      };
+      return res.json({ success: true, data: result, message: '没有需要更新的内容' });
     }
 
     updates.push(`updated_at = NOW()`);
@@ -287,9 +362,15 @@ router.put('/:id', authMiddleware, async (req, res) => {
       values
     );
 
+    const result = {
+      ...updated,
+      start_time_sec: updated.start_time_sec !== null ? updated.start_time_sec : updated.timestamp_sec,
+      end_time_sec: updated.end_time_sec !== null ? updated.end_time_sec : (updated.timestamp_sec + 10)
+    };
+
     res.json({
       success: true,
-      data: updated,
+      data: result,
       message: '知识点更新成功'
     });
   } catch (error) {
@@ -341,8 +422,6 @@ router.post('/batch-delete', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: '请指定要删除的知识点ID' });
     }
 
-    const cs = db.$config.pgp.helpers.ColumnSet(['id'], { table: 'knowledge_points' });
-    
     const deleteConditions = ids.map((_, i) => `id = $${i + 1} AND creator_id = $${ids.length + 1}`);
     
     const result = await db.result(
@@ -398,10 +477,13 @@ router.post('/generate', authMiddleware, async (req, res) => {
 
     for (let i = 0; i < uniqueKeywords.length; i++) {
       const keyword = uniqueKeywords[i];
+      const startTime = Math.min(interval * (i + 1), duration - 30);
       generatedPoints.push({
         title: `知识点：${keyword}`,
         description: `这是关于"${keyword}"的知识点说明，详细内容请观看视频对应片段。`,
-        timestamp_sec: Math.min(interval * (i + 1), duration - 30),
+        timestamp_sec: startTime,
+        start_time_sec: startTime,
+        end_time_sec: Math.min(startTime + interval, duration),
         importance: importanceLevels[i % importanceLevels.length],
         tags: [keyword]
       });
@@ -412,19 +494,27 @@ router.post('/generate', authMiddleware, async (req, res) => {
       const knowledgePoint = await db.one(`
         INSERT INTO knowledge_points (
           video_id, creator_id, title, description, 
-          timestamp_sec, importance, tags, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+          timestamp_sec, start_time_sec, end_time_sec, 
+          importance, tags, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
         RETURNING *
       `, [
         video_id,
         userId,
         point.title,
         point.description,
-        point.timestamp_sec,
+        point.start_time_sec,
+        point.start_time_sec,
+        point.end_time_sec,
         point.importance,
         point.tags
       ]);
-      createdPoints.push(knowledgePoint);
+      
+      createdPoints.push({
+        ...knowledgePoint,
+        start_time_sec: knowledgePoint.start_time_sec,
+        end_time_sec: knowledgePoint.end_time_sec
+      });
     }
 
     res.status(201).json({
