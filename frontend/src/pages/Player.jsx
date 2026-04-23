@@ -1,11 +1,27 @@
 /**
  * Player - 视频播放页
  * HTML5 video 播放器
- * 视频信息、操作按钮、知识卡片弹窗
+ * 视频信息、操作按钮、知识卡片弹窗、字幕显示
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getVideoDetail, toggleLike, reportPlay, addFavorite, removeFavorite, getFeed } from '../services/api';
+import {
+  getVideoDetail,
+  toggleLike,
+  reportPlay,
+  addFavorite,
+  removeFavorite,
+  getFeed,
+  getVideoSubtitles,
+  getSubtitle,
+  generateSubtitle,
+  getVideoKnowledgePoints,
+  createKnowledgePoint,
+  updateKnowledgePoint,
+  deleteKnowledgePoint,
+  generateKnowledgePoints,
+  createEbbinghausReminder
+} from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import KnowledgeCard from '../components/KnowledgeCard';
 import Comments from '../components/Comments';
@@ -53,11 +69,184 @@ function Player() {
   const [relatedVideos, setRelatedVideos] = useState([]);
   const [relatedLoading, setRelatedLoading] = useState(true);
 
+  const [subtitles, setSubtitles] = useState([]);
+  const [currentSubtitle, setCurrentSubtitle] = useState(null);
+  const [currentSubtitleText, setCurrentSubtitleText] = useState('');
+  const [loadingSubtitles, setLoadingSubtitles] = useState(false);
+  const [generatingSubtitle, setGeneratingSubtitle] = useState(false);
+  const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
+
+  const [knowledgePoints, setKnowledgePoints] = useState([]);
+  const [showKnowledgePoints, setShowKnowledgePoints] = useState(false);
+  const [showAddKnowledgePoint, setShowAddKnowledgePoint] = useState(false);
+  const [editingKnowledgePoint, setEditingKnowledgePoint] = useState(null);
+  const [generatingKP, setGeneratingKP] = useState(false);
+  const [savingKP, setSavingKP] = useState(false);
+
+  const [newKPData, setNewKPData] = useState({
+    title: '',
+    description: '',
+    importance: 'normal',
+    start_time_sec: 0,
+    end_time_sec: 0
+  });
+
   useEffect(() => {
     setResumeApplied(false);
     fetchVideoDetail();
     fetchRelatedVideos();
+    fetchSubtitles();
+    fetchKnowledgePoints();
   }, [id]);
+
+  const fetchSubtitles = async () => {
+    setLoadingSubtitles(true);
+    try {
+      const res = await getVideoSubtitles(id);
+      if (res.success && res.data) {
+        setSubtitles(res.data || []);
+      }
+    } catch (err) {
+      console.error('获取字幕列表失败:', err);
+    } finally {
+      setLoadingSubtitles(false);
+    }
+  };
+
+  const fetchKnowledgePoints = async () => {
+    try {
+      const res = await getVideoKnowledgePoints(id);
+      if (res.success && res.data) {
+        setKnowledgePoints(res.data || []);
+      }
+    } catch (err) {
+      console.error('获取知识点列表失败:', err);
+    }
+  };
+
+  const handleAddKnowledgePoint = () => {
+    setNewKPData({
+      title: '',
+      description: '',
+      importance: 'normal',
+      start_time_sec: currentTimestamp,
+      end_time_sec: currentTimestamp + 10
+    });
+    setEditingKnowledgePoint(null);
+    setShowAddKnowledgePoint(true);
+  };
+
+  const handleEditKnowledgePoint = (kp) => {
+    setNewKPData({
+      title: kp.title || '',
+      description: kp.description || '',
+      importance: kp.importance || 'normal',
+      start_time_sec: kp.start_time_sec || 0,
+      end_time_sec: kp.end_time_sec || 0
+    });
+    setEditingKnowledgePoint(kp);
+    setShowAddKnowledgePoint(true);
+  };
+
+  const handleSaveKnowledgePoint = async () => {
+    if (!newKPData.title.trim()) {
+      alert('请输入知识点标题');
+      return;
+    }
+
+    setSavingKP(true);
+    try {
+      if (editingKnowledgePoint) {
+        const res = await updateKnowledgePoint(editingKnowledgePoint.id, newKPData);
+        if (res.success) {
+          setKnowledgePoints((prev) =>
+            prev.map((kp) =>
+              kp.id === editingKnowledgePoint.id ? { ...kp, ...newKPData } : kp
+            )
+          );
+          alert('知识点更新成功！');
+        }
+      } else {
+        const res = await createKnowledgePoint({
+          video_id: parseInt(id, 10),
+          ...newKPData
+        });
+        if (res.success) {
+          setKnowledgePoints((prev) => [...prev, res.data]);
+          alert('知识点添加成功！');
+        }
+      }
+      setShowAddKnowledgePoint(false);
+    } catch (err) {
+      console.error('保存知识点失败:', err);
+      alert('保存失败: ' + (err.message || '请稍后重试'));
+    } finally {
+      setSavingKP(false);
+    }
+  };
+
+  const handleDeleteKnowledgePoint = async (kp) => {
+    if (!confirm(`确定要删除知识点"${kp.title}"吗？`)) return;
+
+    try {
+      const res = await deleteKnowledgePoint(kp.id);
+      if (res.success) {
+        setKnowledgePoints((prev) => prev.filter((item) => item.id !== kp.id));
+      }
+    } catch (err) {
+      console.error('删除知识点失败:', err);
+      alert('删除失败，请稍后重试');
+    }
+  };
+
+  const handleGenerateKnowledgePoints = async () => {
+    setGeneratingKP(true);
+    try {
+      const res = await generateKnowledgePoints(id);
+      if (res.success) {
+        alert(`生成成功！共生成 ${res.data?.length || 0} 个知识点`);
+        fetchKnowledgePoints();
+      }
+    } catch (err) {
+      console.error('生成知识点失败:', err);
+      alert('生成失败: ' + (err.message || '请稍后重试'));
+    } finally {
+      setGeneratingKP(false);
+    }
+  };
+
+  const handleAddReminder = async (kp) => {
+    try {
+      const res = await createEbbinghausReminder(
+        parseInt(id, 10),
+        kp.id,
+        new Date().toISOString()
+      );
+      if (res.success) {
+        alert('复习提醒已创建！将按照艾宾浩斯遗忘曲线提醒您复习。');
+      }
+    } catch (err) {
+      console.error('创建提醒失败:', err);
+      alert('创建提醒失败，请稍后重试');
+    }
+  };
+
+  const getImportanceLabel = (importance) => {
+    const labels = {
+      critical: { text: '关键', color: '#fb7185' },
+      important: { text: '重要', color: '#f59e0b' },
+      normal: { text: '普通', color: '#7ddaff' },
+      optional: { text: '了解', color: '#64748b' }
+    };
+    return labels[importance] || { text: importance, color: '#7ddaff' };
+  };
+
+  const handleJumpToKP = (kp) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = kp.start_time_sec;
+      setCurrentTimestamp(kp.start_time_sec);
+    }
+  };
 
   useEffect(() => {
     if (!videoRef.current || resumeApplied) return;
@@ -203,6 +392,58 @@ function Player() {
     alert('链接已复制');
   };
 
+  const handleSelectSubtitle = async (subtitleId) => {
+    if (!subtitleId) {
+      setCurrentSubtitle(null);
+      setCurrentSubtitleText('');
+      setShowSubtitleMenu(false);
+      return;
+    }
+
+    try {
+      const res = await getSubtitle(subtitleId);
+      if (res.success && res.data) {
+        setCurrentSubtitle(res.data);
+      }
+    } catch (err) {
+      console.error('获取字幕详情失败:', err);
+    }
+    setShowSubtitleMenu(false);
+  };
+
+  const handleGenerateSubtitle = async () => {
+    setGeneratingSubtitle(true);
+    setShowSubtitleMenu(false);
+    try {
+      const res = await generateSubtitle(id, 'zh-CN');
+      if (res.success) {
+        alert('字幕生成成功！');
+        fetchSubtitles();
+      } else {
+        throw new Error(res.message || '生成失败');
+      }
+    } catch (err) {
+      console.error('生成字幕失败:', err);
+      alert('生成字幕失败: ' + (err.message || '请稍后重试'));
+    } finally {
+      setGeneratingSubtitle(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentSubtitle?.items || currentSubtitle.items.length === 0) {
+      setCurrentSubtitleText('');
+      return;
+    }
+
+    const currentTime = currentTimestamp;
+    const currentItem = currentSubtitle.items.find(
+      (item) => currentTime >= item.start_time_sec && currentTime <= item.end_time_sec
+    );
+
+    setCurrentSubtitleText(currentItem?.text || '');
+  }, [currentTimestamp, currentSubtitle]);
+
   const relatedByCategory = relatedVideos.filter((item) => item.category_name === video.category_name);
   const recommendedNext = relatedByCategory.length > 0 ? relatedByCategory[0] : relatedVideos[0];
   const continueActions = [
@@ -279,7 +520,7 @@ function Player() {
         <div className="player-main">
           <section className="player-primary">
             <div className="video-player-panel">
-              <div className="video-player-wrapper">
+              <div className="video-player-wrapper" style={{ position: 'relative' }}>
                 <video
                   ref={videoRef}
                   src={video.video_url}
@@ -290,6 +531,156 @@ function Player() {
                   onEnded={handleVideoEnd}
                   className="player-video"
                 />
+
+                {currentSubtitleText && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '60px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      color: '#fff',
+                      padding: '8px 16px',
+                      borderRadius: '4px',
+                      fontSize: '18px',
+                      maxWidth: '80%',
+                      textAlign: 'center',
+                      zIndex: 10,
+                      pointerEvents: 'none',
+                      lineHeight: '1.5'
+                    }}
+                  >
+                    {currentSubtitleText}
+                  </div>
+                )}
+
+                <button
+                  className="video-action-btn"
+                  style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    right: '12px',
+                    zIndex: 20,
+                    fontSize: '12px',
+                    padding: '6px 12px'
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSubtitleMenu(!showSubtitleMenu);
+                  }}
+                >
+                  {generatingSubtitle ? '生成中...' : currentSubtitle ? `字幕: ${currentSubtitle.language}` : 'CC'}
+                </button>
+
+                {showSubtitleMenu && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '50px',
+                        right: '12px',
+                        zIndex: 30,
+                        backgroundColor: 'rgba(16, 30, 49, 0.98)',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(125, 218, 255, 0.2)',
+                        padding: '8px 0',
+                        minWidth: '160px',
+                        boxShadow: 'var(--shadow-lg)'
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        style={{
+                          padding: '8px 16px',
+                          fontSize: '11px',
+                          color: 'var(--text-light)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          fontWeight: '700',
+                          borderBottom: '1px solid var(--border-subtle)',
+                          marginBottom: '4px'
+                        }}
+                      >
+                        字幕选项
+                      </div>
+
+                      <button
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '10px 16px',
+                          background: 'none',
+                          border: 'none',
+                          textAlign: 'left',
+                          color: !currentSubtitle ? 'var(--primary)' : 'var(--text-primary)',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                        onClick={() => handleSelectSubtitle(null)}
+                      >
+                        关闭字幕
+                      </button>
+
+                      {subtitles.length > 0 && (
+                        <div style={{ marginTop: '4px' }}>
+                          <div
+                            style={{
+                              padding: '4px 16px',
+                              fontSize: '11px',
+                              color: 'var(--text-light)',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em',
+                              fontWeight: '600',
+                              marginTop: '4px'
+                            }}
+                          >
+                            已有字幕
+                          </div>
+                          {subtitles.map((sub) => (
+                            <button
+                              key={sub.id}
+                              style={{
+                                display: 'block',
+                                width: '100%',
+                                padding: '8px 16px',
+                                background: 'none',
+                                border: 'none',
+                                textAlign: 'left',
+                                color: currentSubtitle?.id === sub.id ? 'var(--primary)' : 'var(--text-primary)',
+                                cursor: 'pointer',
+                                fontSize: '13px'
+                              }}
+                              onClick={() => handleSelectSubtitle(sub.id)}
+                            >
+                              {sub.language_display || sub.language}
+                              {sub.is_auto && <span style={{ marginLeft: '8px', fontSize: '11px', color: 'var(--text-light)' }}>(AI)</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <div style={{ marginTop: '4px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
+                        <button
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '10px 16px',
+                            background: 'none',
+                            border: 'none',
+                            textAlign: 'left',
+                            color: 'var(--primary)',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '600'
+                          }}
+                          onClick={handleGenerateSubtitle}
+                          disabled={generatingSubtitle}
+                        >
+                          {generatingSubtitle ? '生成中...' : '+ 生成自动字幕'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
               </div>
 
               <div className="video-info">
@@ -322,6 +713,14 @@ function Player() {
                           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                         </svg>
                         {favorited ? '已收藏' : '加入收藏'}
+                      </button>
+
+                      <button className={`video-action-btn ${showKnowledgePoints ? 'active' : ''}`} onClick={() => setShowKnowledgePoints(!showKnowledgePoints)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="3"></circle>
+                          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                        知识点 {knowledgePoints.length > 0 ? `(${knowledgePoints.length})` : ''}
                       </button>
 
                       <button className="video-action-btn active" onClick={() => setShowCard(true)}>
@@ -431,6 +830,144 @@ function Player() {
                   </div>
                 </div>
 
+                {showKnowledgePoints && (
+                  <div className="player-section-card player-section">
+                    <div className="panel-header">
+                      <div>
+                        <div className="page-kicker">Knowledge points</div>
+                        <div className="player-side-title" style={{ marginBottom: 0 }}>知识点标记</div>
+                        <div className="panel-subtitle">标记视频中的关键知识点，方便复习回顾。</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={handleAddKnowledgePoint}
+                          disabled={!isAuthenticated}
+                        >
+                          + 标记知识点
+                        </button>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={handleGenerateKnowledgePoints}
+                          disabled={generatingKP || !isAuthenticated}
+                        >
+                          {generatingKP ? '生成中...' : 'AI 自动生成'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {knowledgePoints.length === 0 ? (
+                      <div className="empty-state" style={{ padding: '32px 16px' }}>
+                        <div className="empty-state-icon" style={{ fontSize: '36px', marginBottom: '12px' }}>📍</div>
+                        <div className="empty-state-text">暂无知识点标记</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-light)', marginTop: '8px' }}>
+                          点击「标记知识点」或「AI 自动生成」来添加知识点
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {knowledgePoints
+                          .sort((a, b) => a.start_time_sec - b.start_time_sec)
+                          .map((kp) => {
+                            const label = getImportanceLabel(kp.importance);
+                            return (
+                              <div
+                                key={kp.id}
+                                className="card"
+                                style={{
+                                  padding: '14px',
+                                  cursor: 'pointer',
+                                  borderLeft: `3px solid ${label.color}`
+                                }}
+                                onClick={() => handleJumpToKP(kp)}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                      <span
+                                        style={{
+                                          fontSize: '12px',
+                                          fontWeight: '600',
+                                          padding: '2px 8px',
+                                          borderRadius: '4px',
+                                          backgroundColor: `${label.color}20`,
+                                          color: label.color
+                                        }}
+                                      >
+                                        {label.text}
+                                      </span>
+                                      <span style={{ fontSize: '12px', color: 'var(--text-light)' }}>
+                                        ⏱ {formatDuration(kp.start_time_sec)} - {formatDuration(kp.end_time_sec)}
+                                      </span>
+                                    </div>
+                                    <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                                      {kp.title}
+                                    </h4>
+                                    {kp.description && (
+                                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                                        {kp.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditKnowledgePoint(kp);
+                                      }}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: '4px 8px',
+                                        color: 'var(--primary)',
+                                        fontSize: '12px'
+                                      }}
+                                    >
+                                      编辑
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAddReminder(kp);
+                                      }}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: '4px 8px',
+                                        color: 'var(--success)',
+                                        fontSize: '12px'
+                                      }}
+                                    >
+                                      复习
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteKnowledgePoint(kp);
+                                      }}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: '4px 8px',
+                                        color: 'var(--danger)',
+                                        fontSize: '12px'
+                                      }}
+                                    >
+                                      删除
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* 评论区 */}
                 <Comments videoId={parseInt(id, 10)} />
                 </div>
@@ -496,6 +1033,196 @@ function Player() {
         onClose={() => setShowNotes(false)}
         currentTimestamp={currentTimestamp}
       />
+
+      {showAddKnowledgePoint && (
+        <div
+          className="knowledge-card-overlay"
+          onClick={() => setShowAddKnowledgePoint(false)}
+        >
+          <div
+            className="knowledge-card-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxHeight: '80vh', overflow: 'auto' }}
+          >
+            <button
+              className="knowledge-card-close"
+              onClick={() => setShowAddKnowledgePoint(false)}
+            >
+              ×
+            </button>
+
+            <h2>{editingKnowledgePoint ? '编辑知识点' : '标记知识点'}</h2>
+            <div className="modal-muted-copy" style={{ marginBottom: '20px' }}>
+              {editingKnowledgePoint
+                ? '修改知识点的信息'
+                : `在当前时间点 ${formatDuration(currentTimestamp)} 标记一个知识点`}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: 'var(--text-primary)'
+                  }}
+                >
+                  标题 <span style={{ color: 'var(--danger)' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="请输入知识点标题"
+                  value={newKPData.title}
+                  onChange={(e) => setNewKPData((prev) => ({ ...prev, title: e.target.value }))}
+                  maxLength={200}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: 'var(--text-primary)'
+                  }}
+                >
+                  描述
+                </label>
+                <textarea
+                  className="input"
+                  placeholder="请输入知识点描述（可选）"
+                  rows={3}
+                  value={newKPData.description}
+                  onChange={(e) => setNewKPData((prev) => ({ ...prev, description: e.target.value }))}
+                  maxLength={1000}
+                  style={{ resize: 'vertical', minHeight: '80px' }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: 'var(--text-primary)'
+                  }}
+                >
+                  重要程度
+                </label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { value: 'critical', label: '关键', color: '#fb7185' },
+                    { value: 'important', label: '重要', color: '#f59e0b' },
+                    { value: 'normal', label: '普通', color: '#7ddaff' },
+                    { value: 'optional', label: '了解', color: '#64748b' }
+                  ].map((item) => (
+                    <button
+                      key={item.value}
+                      onClick={() => setNewKPData((prev) => ({ ...prev, importance: item.value }))}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        border: newKPData.importance === item.value
+                          ? `2px solid ${item.color}`
+                          : '1px solid var(--border)',
+                        background: newKPData.importance === item.value
+                          ? `${item.color}20`
+                          : 'transparent',
+                        color: item.color,
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: 'var(--text-primary)'
+                    }}
+                  >
+                    开始时间（秒）
+                  </label>
+                  <input
+                    type="number"
+                    className="input"
+                    placeholder="0"
+                    value={newKPData.start_time_sec}
+                    onChange={(e) =>
+                      setNewKPData((prev) => ({
+                        ...prev,
+                        start_time_sec: Math.max(0, parseInt(e.target.value) || 0)
+                      }))
+                    }
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: 'var(--text-primary)'
+                    }}
+                  >
+                    结束时间（秒）
+                  </label>
+                  <input
+                    type="number"
+                    className="input"
+                    placeholder="0"
+                    value={newKPData.end_time_sec}
+                    onChange={(e) =>
+                      setNewKPData((prev) => ({
+                        ...prev,
+                        end_time_sec: Math.max(0, parseInt(e.target.value) || 0)
+                      }))
+                    }
+                    min={0}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <button
+                className="btn btn-outline"
+                style={{ flex: 1 }}
+                onClick={() => setShowAddKnowledgePoint(false)}
+              >
+                取消
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                onClick={handleSaveKnowledgePoint}
+                disabled={savingKP || !newKPData.title.trim()}
+              >
+                {savingKP ? '保存中...' : '保存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
