@@ -555,26 +555,25 @@ function Player() {
                   </div>
                 )}
 
-                <div style={{ position: 'relative', display: 'inline-block' }}>
-                  <button
-                    className="video-action-btn"
-                    style={{
-                      position: 'absolute',
-                      bottom: '12px',
-                      right: '12px',
-                      zIndex: 20,
-                      fontSize: '12px',
-                      padding: '6px 12px'
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowSubtitleMenu(!showSubtitleMenu);
-                    }}
-                  >
-                    {generatingSubtitle ? '生成中...' : currentSubtitle ? `字幕: ${currentSubtitle.language}` : 'CC'}
-                  </button>
+                <button
+                  className="video-action-btn"
+                  style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    right: '12px',
+                    zIndex: 20,
+                    fontSize: '12px',
+                    padding: '6px 12px'
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSubtitleMenu(!showSubtitleMenu);
+                  }}
+                >
+                  {generatingSubtitle ? '生成中...' : currentSubtitle ? `字幕: ${currentSubtitle.language}` : 'CC'}
+                </button>
 
-                  {showSubtitleMenu && (
+                {showSubtitleMenu && (
                     <div
                       style={{
                         position: 'absolute',
@@ -682,7 +681,6 @@ function Player() {
                       </div>
                     </div>
                   )}
-                </div>
               </div>
 
               <div className="video-info">
